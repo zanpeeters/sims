@@ -1,0 +1,36 @@
+		ASIAA nanoSIMS lab \ ISOTOPES \ Sample : Murchison 
+
+						22.01.14 11:20
+Stage Position   : x=-13114 um  y=-1912  um  z=2050   um
+Raw data file    : D:\Cameca NanoSIMS Data\User_data\Bernd\oxy1618_FC.is
+Block number     : 2
+Meas. per block  : 10
+Rejection(sigma) : 2
+Slit Preset : None
+Lens Preset : None
+Pre Sputtering Time (s) : 4.1
+               Raster (um) : 10.0
+               Slit Preset : None
+               Lens Preset : None
+Scanning On : Frame:1,1-64,64 / Blanking:100.0% / Raster:10.0um
+Tuning Mode: Multicollection
+Regulation Mode: HALL
+Check every (fr.): 0
+
+Primary Current before acq : XXXXXXXXXX / after acq : YYYYYYYYYY
+
+FC Background before acq :  Det1=ZZZZZZZ Det2=ZZZZZZZ 
+
+FC Background after acq :  Det1=ZZZZZZZ Det2=ZZZZZZZ 
+
+
+Mass# Species        Mass  Det.   Tc(s)   BField    Radius  Peak# RefPeak# Method
+   1  16O           16.044 Tr1    4.096  1282.584   402.149                                     
+   2  18O           18.007 Tr2    4.096  1282.584   426.044                                     
+
+
+-- Section 1 ---- EM & FC with Setup Background ---------------------
+
+  Block to block results
+
+    Block#  Ratio#   Mean       SD     N_rej Err_mean(%) Poisson(%)   Khi2 
