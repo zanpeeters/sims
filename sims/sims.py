@@ -15,8 +15,6 @@ except ImportError:
 
 from .info import *
 
-__version__ = '20140331'
-
 class SIMSBase(object):
     """ Base SIMS object. """
     def __init__(self, fileobject):
@@ -79,7 +77,6 @@ class SIMSBase(object):
         
         # There can be multiple Poly_list markers, go with last one.
         polylist_pos = [m.start() for m in re.finditer(b'Poly_list\x00', hdr)]
-        print(polylist_pos)
         if polylist_pos:
             polylist_pos = polylist_pos[-1]
         else:
@@ -183,27 +180,11 @@ class SIMSBase(object):
                         det = 'Detector{}'.format(n+1)
                         self.header['Detectors'][det]['exit slit widths'][2] = exsl[5*n:5*(n+1)]
                         self.header['Detectors'][det]['exit slit heights'][2] = exsl[5*(n+1):5*(n+2)]
-                # End Detectors pt 2 based on anal_param_nano_bis position
-            # Padding zeros at least in some versions; presets starts with name, not value zero, so chomping works?
-            self._chomp(hdr)
+                
+                # Presets
+                self.header['Presets'] = self._presets(hdr)
             
-            
-            # Presets:
-            # presput/slit = 1080
-            # presput/lens = 3640
-            # measure/slit = 1080
-            # measure/lens = 3640
-            # 2x 1080 padding
-            # padding can be before presput, inbetween presput and measure and after measure.
-            # total size: 11600
-            
-            self.header['Presets'] = {}
-            self.header['Presets']['Presputter'] = {}
-            self.header['Presets']['Presputter']['Slits'] = self._presets(hdr, group='slit')
-            self.header['Presets']['Presputter']['Lenses'] = self._presets(hdr, group='lens')
-            self.header['Presets']['Measure'] = {}
-            self.header['Presets']['Measure']['Slits'] = self._presets(hdr, group='slit')
-            self.header['Presets']['Measure']['Lenses'] = self._presets(hdr, group='lens')
+            # End Detectors pt 2 based on anal_param_nano_bis position
             
             # Last part of detectors
             if self.header['analysis version'] >= 6:
@@ -236,7 +217,9 @@ class SIMSBase(object):
             plane, width, height. The image header must be read before data can
             be read.
         """
-        if self.header['file type'] == 26:
+        if not self.header['data included']:
+            pass
+        elif self.header['file type'] == 26:
             self._isotope_data()
         elif self.header['file type'] in (21, 22):
             # line scan types, no ImageHeader
@@ -265,6 +248,19 @@ class SIMSBase(object):
         with open(filename, mode='wt', encoding='utf-8') as fp:
             print(json.dumps(self.header, sort_keys=True, indent=2, \
                 separators=(',', ': '), cls=JSONDateTimeEncoder), file=fp)
+    
+    
+    def get_info(self, *args):
+        """ Print info about the header key words.
+            
+            Usage: s.get_info('masses', 'Image', 'defines', ...)
+            
+            The full header is available under s.header. Special arguments \"defines\", 
+            \"dicts\", or \"variables\" will print all of the defines, dicts, or
+            variables. Running get_info() without arguments will print all header
+            information.
+        """
+        pass
     
     
     ### Internal function
@@ -839,8 +835,28 @@ class SIMSBase(object):
         return d
     
     
-    def _presets(self, hdr, group=None):
-        """ Internal function; reads 1080 (slits) or 3640 (lenses) bytes, returns Presets dict. """
+    def _preset_start(self, hdr):
+        """ Internal function; read 0 bytes (8 and back up), returns True or False detecting start of preset. """
+        test = hdr.read(8)
+        hdr.seek(-8, 1)
+        
+        try:
+            test = self._cleanup_string(test)
+        except UnicodeDecodeError:
+            # Some non-null filler bytes
+            return False
+        
+        # First entry in preset is .isf filename with full path
+        # If preset is used at all, first entry is non-null.
+        # Paths start with / (older Sun systems), or drive letter (D: newer Windows systems)
+        if re.match('[A-Z]:', test) or re.match('/.', test):
+            return True
+        else:
+            return False
+    
+    
+    def _preset(self, hdr, group=None):
+        """ Internal function; reads 1080 (slits) or 3640 (lenses) bytes, returns a Preset dict. """
         # Called ApPresetSlit/ApPresetLens in OpenMIMS
         # ApPresetDef and ApParamPreset combined here.
         if not group:
@@ -878,6 +894,34 @@ class SIMSBase(object):
         else:
             skip = 3640 - (current_position - start_position)
         hdr.seek(skip, 1)
+        
+        return d
+    
+    
+    def _presets(self, hdr):
+        """ Internal function; reads 11400 bytes, returns Presets dict. """
+        # presput/slit = 1080
+        # presput/lens = 3640
+        # measure/slit = 1080
+        # measure/lens = 3640
+        # 2 x 1080 padding
+        # padding can be before presput, inbetween presput and measure, and after measure.
+        
+        d = {}
+        d['Presputter'] = {}
+        padding = 0
+        if not self._preset_start(hdr):
+            hdr.seek(1080, 1)
+            padding += 1
+        d['Presputter']['Slits'] = self._preset(hdr, group='slit')
+        d['Presputter']['Lenses'] = self._preset(hdr, group='lens')
+        d['Measure'] = {}
+        if not self._preset_start(hdr):
+            hdr.seek(1080, 1)
+            padding += 1
+        d['Measure']['Slits'] = self._preset(hdr, group='slit')
+        d['Measure']['Lenses'] = self._preset(hdr, group='lens')
+        hdr.seek(1080 * (2 - padding), 1)
         
         return d
     
@@ -965,13 +1009,13 @@ class SIMSBase(object):
     
     
     def _cleanup_string(self, bytes):
-        """ Internal function; cuts off bytes at first null-byte, decodes bytes as unicode, returns string """
+        """ Internal function; cuts off bytes at first null-byte, decodes bytes as latin-1 string, returns string """
         try:
             b = bytes.index(b'\x00')
         except ValueError:
-            return bytes.decode('utf-8').strip()
+            return bytes.decode('latin-1').strip()
         else:
-            return bytes[:b].decode('utf-8').strip()
+            return bytes[:b].decode('latin-1').strip()
     
     
     def _cleanup_date(self, date):
@@ -1006,19 +1050,6 @@ class SIMSBase(object):
         while(bytes and bytes in filler):
             bytes = hdr.read(chunk)
         hdr.seek(-1 * chunk, 1)
-    
-    
-    def get_info(self, *args):
-        """ Print info about the header key words.
-            
-            Usage: s.get_info('masses', 'Image', 'defines', ...)
-            
-            The full header is available under s.header. Special arguments \"defines\", 
-            \"dicts\", or \"variables\" will print all of the defines, dicts, or
-            variables. Running get_info() without arguments will print all header
-            information.
-        """
-        
     
 
 

@@ -52,6 +52,15 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+####################
+# Above is standard Python .gitignore
+# Below is my additions
+
+# individual files
+# This one is a pass-though for import to the sims subfolder
+# only relevant on my installation
+__init__.py
+
 # Mac
 .DS_Store
 
