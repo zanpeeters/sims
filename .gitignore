@@ -61,9 +61,6 @@ docs/_build/
 # only relevant on my installation
 __init__.py
 
-# Mac
-.DS_Store
-
 # SVN
-.svn/
-.svnignore
+**/.svn/
+**/.svnignore
