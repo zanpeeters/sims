@@ -56,10 +56,8 @@ docs/_build/
 # Above is standard Python .gitignore
 # Below is my additions
 
-# individual files
-# This one is a pass-though for import to the sims subfolder
-# only relevant on my installation
-__init__.py
+# do track file OpenMIMS.tar.bz2, but not extracted tree.
+doc/OpenMIMS/
 
 # SVN
 **/.svn/
