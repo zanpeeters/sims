@@ -1,7 +1,7 @@
 from .sims import *
 from .info import *
 from .utils import *
-form .rkeys import *
+from .rkeys import *
 
 __version__ = '20140411'
 
