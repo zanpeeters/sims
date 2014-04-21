@@ -1209,6 +1209,11 @@ class SIMS(SIMSBase, SIMSLut):
             
             Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
             
+            EEG Note: Local import of info.py with 'from .info import *' returns SystemError,
+            it cannot import local file if parent directory isn't in the PYTHONPATH.
+            In this case, navigate up one directory level and call with:
+            s = sims.sims.SIMS(...), so that the parent module is loaded first.
+            
             In addition to header and data, a set of colour look-up tables (LUTs) are also
             loaded. This requires matplotlib and loads the default backend. To prevent this
             from happening, give load_luts=False. For more info, see help in SIMSLut class.
