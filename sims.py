@@ -25,6 +25,8 @@ except ImportError:
 
 import sims.info as info
 
+if sys.version_info.major >= 3:
+    unicode = str
 
 class SIMSBase(object):
     """ Base SIMS object. """
@@ -264,9 +266,12 @@ class SIMSBase(object):
                 else:
                     return json.JSONEncoder.default(self, obj)
 
-        with open(filename, mode='wt', encoding='utf-8') as fp:
-            print(json.dumps(self.header, sort_keys=True, indent=2,
-                             separators=(',', ': '), cls=JSONDateTimeEncoder), file=fp)
+        # io is for python2 compatibility
+        with io.open(filename, mode='wt', encoding='utf-8') as fp:
+            print(json.dumps(self.header, sort_keys=True,
+                             indent=2, ensure_ascii=False,
+                             separators=(',', ': '), cls=JSONDateTimeEncoder),
+                  file=fp)
 
     def get_info(self, *args):
         """ Print info about the header key words.
@@ -649,10 +654,12 @@ class SIMSBase(object):
             unpack(self.header['byte order'] + '8s 4i', hdr.read(24))
 
         # Each widths list is 10 ints long
-        # starred list unpacking only works in python 3.x
-        d['dduo'], *d['dduo widths'] = unpack(self.header['byte order'] + '11i', hdr.read(44))
-        d['d0'], *d['d0 widths'] = unpack(self.header['byte order'] + '11i', hdr.read(44))
-        d['d1'], *d['d1 widths'] = unpack(self.header['byte order'] + '11i', hdr.read(44))
+        d['dduo'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['dduo widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['d0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['d0 widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['d1'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['d1 widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
 
         # 4 bytes unused
         hdr.seek(4, 1)
@@ -667,8 +674,8 @@ class SIMSBase(object):
         if self.header['analysis version'] >= 4:
             d['hv cesium'], d['hv duo'] = unpack(self.header['byte order'] + '2i', hdr.read(8))
             # DCs not in OpenMIMS; only in certain release/version?
-            d['dcs'], *d['dcs widths'] = unpack(self.header['byte order'] + '11i', hdr.read(44))
-
+            d['dcs'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            d['dcs widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
 
         # skip bytes until total read in this function is 552
         # OpenMIMS: size_Ap_primary_nano = 552
@@ -1011,7 +1018,8 @@ class SIMSBase(object):
             Assumes date-part and time-part are space separated, date is dot-separated,
             and time is colon-separated. Returns None if date is empty or not a string.
         """
-        if not (date and isinstance(date, str)):
+        print(date, type(date))
+        if not (date and isinstance(date, (str, unicode))):
             return None
 
         date, time = date.split()
@@ -1071,7 +1079,7 @@ class SIMSLut(object):
         self.read_cameca_lut(smooth=smooth)
         self.read_limage_lut(smooth=smooth)
 
-    def read_cameca_lut(self, *names, smooth=True):
+    def read_cameca_lut(self, *names, **kwargs):
         """ Load a Cameca Look-Up Table.
 
             Usage: read_cameca_lut('cameca bw', 'temp', ..., smooth=True)
@@ -1099,6 +1107,8 @@ class SIMSLut(object):
             names = [n[7:] for n in names if n.startswith('cameca ')]
             fnames = [os.path.join(self.lut_dir, n, '.lut') for n in names]
 
+        smooth = kwargs.pop('smooth', True)
+
         # All luts need to be 0-1 normalized
         norm = mpc.Normalize(vmin=0, vmax=255)
 
@@ -1121,7 +1131,7 @@ class SIMSLut(object):
                 lut = mpc.ListedColormap(lut_data, name=name)
             mpl.register_cmap(cmap=lut)
 
-    def read_limage_lut(self, *names, smooth=True):
+    def read_limage_lut(self, *names, **kwargs):
         """ Load a L'image Look-Up Table.
 
             Usage: read_limage_lut('blue/white', 'limage prism', ..., smooth=True)
@@ -1143,6 +1153,8 @@ class SIMSLut(object):
             stead.
         """
         names = [n[7:] for n in names if n.startswith('limage ')]
+
+        smooth = kwargs.pop('smooth', True)
 
         fh = open(self.limage_file, mode='rb')
         hdr = fh.read(32)
