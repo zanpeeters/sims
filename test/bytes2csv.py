@@ -2,9 +2,9 @@
 """ Read x bytes, print as nn hex value, 20 on a line, comma separated into csv file. """
 import csv
 
-readbytes = 26432
+readbytes = 27400
 linelength = 20
-filename = '../sims/test/OR1dm6-ON_50-G6.im'
+filename = 'OR1d6m_15.im'
 
 
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Info and substitution dicts for sims module. """
-from .utils import rkeys
+from __future__ import print_function, absolute_import, division
+from sims.rkeys import rkeys
 
 stage_scan_types = {
     0: 'stage scan',
@@ -80,7 +81,8 @@ header_info = {
     'steps x':                  'Number of steps in X direction in a stage scan. (int)',
     'steps y':                  'Number od steps in Y direction in a stage scan. (int)',
     'step size':                'Physical distance between two steps in microns in a stage scan (int)',
-    'step waittime':            'Waiting time between two points in ?? in a stage scan (float)', # could be cts/px in microsec. but then should be called pixel waittime
+    # waittime could be cts/px in microsec. but then should be called pixel waittime
+    'step waittime':            'Waiting time between two points in ?? in a stage scan (float)',
     # endif
     'masses':                   'Number of masses. (int)',
     'mass table ptr':           '???; a number for each mass. (list[int])',
@@ -248,7 +250,8 @@ header_info = {
         'trolley index':	    'An index counting the trolleys, corresponds to the index in the MassTable; secondary electron has index -2, but comes in the MassTable (and in the data) at index 5 if all trolleys are used; that is after the 5th trolley, probably because the older nanoSIMS before the Large addition of trolleys 6 and 7, recorded the SE after the ion data). (int)',
         'peakcenter index':	    'Index for trolleys which have peak centering. (int)', 
         'peakcenter follow':	'For trolleys which do not have peak centering, this trolley will follow the trolley with this peak centering index. (int)',
-        'focus':    			'Focus applied to detector. (float)', # called polarization in OpenMIMS
+        # focus is called polarization in OpenMIMS
+        'focus':    			'Focus applied to detector. (float)',
         'hmr start':			'Start point of deflection in high mass resolution scan in Volt. (float)',
         'hmr start plate 1':	'Start value of plate 1 in a high mass resolution scan in bits. (? identical to "deflector plate 1"?) (int)',
         'hmr start plate 2':	'Start value of plate 2 in a high mass resolution scan in bits. (? identical to "deflector plate 2"?) (int)',

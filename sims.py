@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Python module to read Cameca (nano)SIMS data files. """
+from __future__ import print_function, absolute_import, division
 
-import numpy as np
 import io
 import sys
 import os
@@ -15,6 +15,7 @@ import gzip
 import bz2
 import zipfile
 from struct import unpack
+import numpy as np
 
 # available in Python 3.3 and higher, or with non-default extensions
 try:
@@ -22,7 +23,7 @@ try:
 except ImportError:
     lzma = None
 
-from .info import *
+import sims.info as info
 
 
 class SIMSBase(object):
@@ -59,7 +60,7 @@ class SIMSBase(object):
             self.header['header size'] = \
             unpack(self.header['byte order'] + '3i', snip)
 
-        if self.header['file type'] not in supported_file_types:
+        if self.header['file type'] not in info.supported_file_types:
             msg = "File of type {} is not supported at the moment."
             msg = msg.format(self.header['file type'])
             raise NotImplementedError(msg)
@@ -314,7 +315,7 @@ class SIMSBase(object):
                 d['presputtering'], d['presputtering duration'] = \
                 unpack(self.header['byte order'] + '16s 6i d 4i', hdr.read(64))
 
-            d['scan type'] = stage_scan_types.get(d['scan type'], str(d['scan type']))
+            d['scan type'] = info.stage_scan_types.get(d['scan type'], str(d['scan type']))
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = self._hvcontrol(hdr)
@@ -620,8 +621,9 @@ class SIMSBase(object):
         d['used for energy center'] = bool(d['used for energy center'])
         d['used for e0s center'] = bool(d['used for e0s center'])
         d['real trolley'] = bool(d['real trolley'])
-        d['peakcenter side'] = peakcenter_sides.get(d['peakcenter side'], str(d['peakcenter side']))
-        d['detector'] = detectors.get(d['detector'], str(d['detector']))
+        d['peakcenter side'] = info.peakcenter_sides.get(d['peakcenter side'],
+                                                         str(d['peakcenter side']))
+        d['detector'] = info.detectors.get(d['detector'], str(d['detector']))
         d['hmr count time'] /= 100
         d['peakcenter count time'] /= 100
         return d
@@ -666,6 +668,7 @@ class SIMSBase(object):
             d['hv cesium'], d['hv duo'] = unpack(self.header['byte order'] + '2i', hdr.read(8))
             # DCs not in OpenMIMS; only in certain release/version?
             d['dcs'], *d['dcs widths'] = unpack(self.header['byte order'] + '11i', hdr.read(44))
+
 
         # skip bytes until total read in this function is 552
         # OpenMIMS: size_Ap_primary_nano = 552
@@ -751,7 +754,7 @@ class SIMSBase(object):
         for n in range(1, 8):
             det = 'Detector{}'.format(n)
             det_type = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-            d[det]['detector'] = detectors.get(det_type, str(det_type))
+            d[det]['detector'] = info.detectors.get(det_type, str(det_type))
         return d
 
     def _exit_slits(self, hdr):
@@ -769,9 +772,9 @@ class SIMSBase(object):
 
         d['exit slit'], d['exit slit size'] = \
             unpack(self.header['byte order'] + '2i', hdr.read(8))
-        d['exit slit label'] = exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
+        d['exit slit label'] = info.exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
         d['exit slit size label'] = \
-            exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
+            info.exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
 
         d['exit slit widths'] = [0, 0, 0]
         d['exit slit widths'][0] = list(unpack(self.header['byte order'] + '5i', hdr.read(20)))

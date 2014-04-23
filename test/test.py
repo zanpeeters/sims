@@ -1,20 +1,32 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
+"""
+Find all sims (.im, .is, .ls) files in dirs (non-recursive) and open them.
+
+Print list of files with problem.
+"""
 import sims
 import glob, os
 
-d = '/Users/zan/Documents/Scripts/Python/sims/test2'
-keywords = ['file type',  'scan type', 'NanoSIMSHeader/mode', 'NanoSIMSHeader/regulation mode', 'NanoSIMSHeader/semigraphic mode', 'NanoSIMSHeader/grain mode', 'analysis type',]
+###########################
+# list all dirs to search
+dirs = ['.', './more']
 
+# List dict keywords to print, give keywords as path,
+# e.g. 'Image/width' to print sims.header['Image']['width']
+keywords = ['sample type', 'analysis type', 'scan type', 'size type', 'NanoSIMSHeader/detector type', 'NanoSIMSHeader/scanning type',]
 
-pr = '{:<15}'
-pr *= len(keywords)
-pr = '{:<30}' + pr
-print(pr.format('file name', *keywords))
+###########################
 
-files = glob.glob(os.path.join(d, "*.im")) + glob.glob(os.path.join(d, "*.is")) + glob.glob(os.path.join(d, "*.ls")) + glob.glob(os.path.join(d, "../test/*.im"))
-errors = []
+filepattern = ['*.[il][ms]']
+files = zip(dirs, filepattern * len(dirs))
+files = [os.path.join(d, f) for d, f in files]
+allfiles = []
 for f in files:
+    allfiles += glob.glob(f)
+
+errors = []
+for f in allfiles:
     # read header
     fh = open(f, mode='rb')
     s = sims.SIMSBase(fh)
@@ -26,20 +38,21 @@ for f in files:
     fh.close()
     
     # convert list into dict keywords
-    results = []
-    for k in keywords:
-        klist = k.split('/')
-        kstr = 's.header' + '["{}"]' * len(klist)
-        results += [kstr.format(*klist)]
+    results = [k.split('/') for k in keywords]
+    # kstr = 's.header' + '["{}"]' * len(klist)
+    # results += [kstr.format(*klist)]
+    print(results)
     
-    # eval results
-    for r in range(len(results)):
-        try:
-            results[r] = eval(results[r])
-        except KeyError:
-            results[r] = '---'
-    
-    # print results
-    print(pr.format(os.path.basename(f), *results))
+    # # eval results
+    # for r in range(len(results)):
+    #     try:
+    #         results[r] = eval(results[r])
+    #     except KeyError:
+    #         results[r] = '---'
+    # 
+    # # print results
+    # print(pr.format(os.path.basename(f), *results))
 
-if errors: print('Problems with:', errors)
+if errors:
+    print('Problems opening:')
+    print('\n'.join(errors))

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Recursive keyword search in dictionaries. """
-__all__ = ['rkeys', 'rkeys_path', 'print_dict']
 
 def rkeys(dictionary, root=[], path=[]):
     """ Recursively search nested dictionaries.
