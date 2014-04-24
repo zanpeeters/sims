@@ -136,20 +136,15 @@ header_info = {
         'offset':               '? (int)',
         'quantity':             '? (int)',
     },
-    'polylist length':          'Length of list PolyList. (int)',
     'PolyList': {
-        'PolyList':             'A list of length \'polylist length\', with each item a \'Species\' dict. (list(dict))',
+        'PolyList':             'A list with each item a \'Species\' dict. (list(dict))',
     },
-    # if isotopes
-    'champslist length':        'Length of ChampsList, only in isotopes files. (int)',
     'ChampsList': {
-        'ChampsList':           '? only in isotopes files. (?)',
+        'ChampsList':           'The struct is present in certain files, but always length 0. Don\'t know how to read. (?)',
     },
-    'offsetlist length':        'Length of OffsetList, only in isotopes files. (int)',
     'OffsetList': {
-        'OffsetList':           '? only in isotopes files. (?)',
+        'OffsetList':           'The struct is present in certain files, but always length 0. Don\'t know how to read. (?)',
     },
-    # end if isotopes
     # NanoSIMSHeader
     'NanoSIMSHeader': {
         'NanoSIMSHeader':       'Stores information specific to the nanoSIMS machine. (dict)',

@@ -99,44 +99,40 @@ class SIMSBase(object):
         hdr.seek(12)
         self.header.update(self._main_header(hdr))
 
-        # Found in isotope image, where else?
-        self.header['champslist length'] = 0
-        if champslist_pos >= 0:
-            hdr.seek(champslist_pos + 16)
-            self.header['ChampsList'] = []
-            self.header['champslist length'] = unpack(self.header['byte order'] + 'i',
-                                                      hdr.read(4))[0]
-            for c in range(self.header['champslist length']):
-                warnings.warn('Champs list is non-null: find out how to read.')
-                pass
-            hdr.seek(4, 1)
-
-        # Found in isotope image, where else?
-        self.header['offsetlist length'] = 0
-        if offsetlist_pos >= 0:
-            hdr.seek(offsetlist_pos + 16)
-            self.header['OffsetList'] = []
-            self.header['offsetlist length'] = unpack(self.header['byte order'] + 'i',
-                                                      hdr.read(4))[0]
-            for c in range(self.header['offsetlist length']):
-                warnings.warn('Offset list is non-null: find out how to read.')
-                pass
-            hdr.seek(4, 1)
-
-        # NanoSIMS header, starts with polylist
-        self.header['polylist length'] = 0
+        # NanoSIMS header, starts with PolyList/ChampsList/OffsetList
+        # The following configurations have been found in the wild, so far:
+        # 1. NS header
+        # 2. PL, NS header
+        # 3. PL, CL, OL, NS header
+        # 4. PL, CL, OL, partial NS header, PL, NS header, PL, CL, OL,
+        #    partial NS header, PL, NS header
+        # Note: I have not seen any *lists with contents (only length 0).
+        # From OpenMIMS documentation I know that PolyList is as list of
+        # Species dicts, but don't know how to read ChampsList or OffsetList.
         if polylist_pos < 0:
+            # Case 1: no PL
             msg = 'Beginning of PolyList not found, '
             msg += 'don\'t know where nanoSIMS header starts.'
             warnings.warn(msg)
         else:
-            hdr.seek(polylist_pos + 16)
-            self.header['polylist length'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-            self.header['PolyList'] = []
-            for p in range(self.header['polylist length']):
-                self.header['PolyList'].append(self._species(hdr))
-            # 4 bytes unused
-            hdr.seek(4, 1)
+            if (champslist_pos < 0 and offsetlist_pos < 0):
+                # Case 2: PL, NS header
+                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+            elif (champslist_pos > polylist_pos and offsetlist_pos > polylist_pos):
+                # Case 3: PL, CL, OL, NS header
+                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+                self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
+                self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
+            elif (champslist_pos < polylist_pos and offsetlist_pos < polylist_pos):
+                # Case 4: PL, CL, OL, partial NS header, PL, NS header
+                # with possible repeat
+                self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
+                self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
+                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+            else:
+                msg = 'An unknown order of the Poly/Champs/Offset Lists occured.\n'
+                msg += 'Positions: {} {} {}'.format(polylist_pos, champslist_pos, offsetlist_pos)
+                raise NotImplementedError(msg)
 
             self.header['NanoSIMSHeader'] = self._nanosims_header(hdr)
 
@@ -442,6 +438,26 @@ class SIMSBase(object):
         for n in range(5):
             d['atomic number'][n], d['isotope number'][n], d['stoich number'][n] = \
                 unpack(self.header['byte order'] + '3i', hdr.read(12))
+        return d
+
+    def _pco_list(self, hdr, name, pos):
+        """ Internal function; reads 'name'list, returns 'Name'List list.
+            Name is one of "poly", "champs", or "offset". pos is the byte-
+            position where the maker 'Name'List starts.
+        """
+        if name not in ('poly', 'champs', 'offset'):
+            raise TypeError('Name must be one of "poly", "champs", or "offset".')
+
+        hdr.seek(pos + 16)
+        length = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d = []
+        for p in range(length):
+            if name == 'poly':
+                d.append(self._species(hdr))
+            else:
+                msg = '{}List is non-null, don\'t know how to read.'.format(name.capitalize())
+                raise NotImplementedError(msg)
+        hdr.seek(4, 1)
         return d
 
     def _nanosims_header(self, hdr):
