@@ -83,18 +83,12 @@ class SIMSBase(object):
         hdr = self.fh.read(self.header['header size'])
 
         # Find several markers in the byte-string
-        champslist_pos = hdr.find(b'Champs_list\x00')
-        offsetlist_pos = hdr.find(b'Offset_list\x00')
-        analparamnano_pos = hdr.find(b'Anal_param_nano\x00')
-        analparamnanobis_pos = hdr.find(b'Anal_param_nano_bis\x00')
-
-        # There can be multiple Poly_list markers, go with last one.
-        polylist_pos = [m.start() for m in re.finditer(b'Poly_list\x00', hdr)]
-
-        if polylist_pos:
-            polylist_pos = polylist_pos[-1]
-        else:
-            polylist_pos = -1
+        # Each of these may occur more than once, find last.
+        polylist_pos = hdr.rfind(b'Poly_list\x00')
+        champslist_pos = hdr.rfind(b'Champs_list\x00')
+        offsetlist_pos = hdr.rfind(b'Offset_list\x00')
+        analparamnano_pos = hdr.rfind(b'Anal_param_nano\x00')
+        analparamnanobis_pos = hdr.rfind(b'Anal_param_nano_bis\x00')
 
         # Turn byte-string into BytesIO file-like object; reading and
         # keeping track of where we are is easier that way than trying to
@@ -104,6 +98,30 @@ class SIMSBase(object):
         # Main header
         hdr.seek(12)
         self.header.update(self._main_header(hdr))
+
+        # Found in isotope image, where else?
+        self.header['champslist length'] = 0
+        if champslist_pos >= 0:
+            hdr.seek(champslist_pos + 16)
+            self.header['ChampsList'] = []
+            self.header['champslist length'] = unpack(self.header['byte order'] + 'i',
+                                                      hdr.read(4))[0]
+            for c in range(self.header['champslist length']):
+                warnings.warn('Champs list is non-null: find out how to read.')
+                pass
+            hdr.seek(4, 1)
+
+        # Found in isotope image, where else?
+        self.header['offsetlist length'] = 0
+        if offsetlist_pos >= 0:
+            hdr.seek(offsetlist_pos + 16)
+            self.header['OffsetList'] = []
+            self.header['offsetlist length'] = unpack(self.header['byte order'] + 'i',
+                                                      hdr.read(4))[0]
+            for c in range(self.header['offsetlist length']):
+                warnings.warn('Offset list is non-null: find out how to read.')
+                pass
+            hdr.seek(4, 1)
 
         # NanoSIMS header, starts with polylist
         self.header['polylist length'] = 0
@@ -119,32 +137,6 @@ class SIMSBase(object):
                 self.header['PolyList'].append(self._species(hdr))
             # 4 bytes unused
             hdr.seek(4, 1)
-
-            # Found in isotope image, where else?
-            self.header['champslist length'] = 0
-            if champslist_pos >= 0:
-                hdr.seek(champslist_pos + 16)
-                self.header['ChampsList'] = []
-                self.header['champslist length'] = unpack(self.header['byte order'] + 'i',
-                                                          hdr.read(4))[0]
-                for c in range(self.header['champslist length']):
-                    # read something here, don't know what
-                    warnings.warn('Champs list is non-null: find out how to read.')
-                    pass
-                hdr.seek(4, 1)
-
-            # Found in isotope image, where else?
-            self.header['offsetlist length'] = 0
-            if offsetlist_pos >= 0:
-                hdr.seek(offsetlist_pos + 16)
-                self.header['OffsetList'] = []
-                self.header['offsetlist length'] = unpack(self.header['byte order'] + 'i',
-                                                          hdr.read(4))[0]
-                for c in range(self.header['offsetlist length']):
-                    # read something here, don't know what
-                    warnings.warn('Offset list is non-null: find out how to read.')
-                    pass
-                hdr.seek(4, 1)
 
             self.header['NanoSIMSHeader'] = self._nanosims_header(hdr)
 
@@ -1018,7 +1010,6 @@ class SIMSBase(object):
             Assumes date-part and time-part are space separated, date is dot-separated,
             and time is colon-separated. Returns None if date is empty or not a string.
         """
-        print(date, type(date))
         if not (date and isinstance(date, (str, unicode))):
             return None
 
