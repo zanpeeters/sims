@@ -1182,30 +1182,14 @@ class SIMSLut(object):
                 mpl.register_cmap(cmap=lut)
 
 
-class SIMS(SIMSBase, SIMSLut):
-    """ Read a (nano)SIMS file and load the full header and image data. """
-    def __init__(self, filename, load_luts=False):
-        """ Create a SIMS object that will hold all the header information and image data.
-            Header information is stored as a Python dict in s.header, while the data is
-            stored as a Numpy/Scipy array in s.data. All methods from SIMSBase and SIMSLut
-            are inherited. The file is closed immediately after reading.
-
-            This class can open Cameca (nano)SIMS files ('filename.im'), or files compressed
-            with gzip, bzip2, or zip (e.g. 'filename.im.bz2'). With Python 3.3 or newer
-            lzma and xz compressed files are also supported.
-
-            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
-
-            EEG Note: Local import of info.py with 'from .info import *' returns SystemError,
-            it cannot import local file if parent directory isn't in the PYTHONPATH.
-            In this case, navigate up one directory level and call with:
-            s = sims.sims.SIMS(...), so that the parent module is loaded first.
-
-            In addition to header and data, a set of colour look-up tables (LUTs) are also
-            loaded. This requires matplotlib and loads the default backend. To prevent this
-            from happening, give load_luts=False. For more info, see help in SIMSLut class.
+class SIMSOpener(SIMSBase):
+    """ SIMS file opener. """
+    def __init__(self, filename):
+        """ Class to open SIMS files, with transparent support for compression.
+            Compression is decided based on file extension. File is opened and the file handle
+            passed to a SIMSBase object. Nothing is read.
         """
-        if isinstance(filename, str):
+        if isinstance(filename, (str, unicode)):
             if filename.lower().endswith('.gz'):
                 self.fh = gzip.open(filename, mode='rb')
             elif filename.lower().endswith('.bz2'):
@@ -1246,13 +1230,45 @@ class SIMS(SIMSBase, SIMSLut):
         else:
             raise TypeError('Cannot open file {}, don\'t know what it is.')
 
+        self.fh.seek(0)
+        SIMSBase.__init__(self, self.fh)
+
+    def close(self):
+        """ Close the file. """
+        self.fh.close()
+
+
+class SIMS(SIMSOpener, SIMSLut):
+    """ Read a (nano)SIMS file and load the full header and image data. """
+    def __init__(self, filename, load_luts=False):
+        """ Create a SIMS object that will hold all the header information and image data.
+            Header information is stored as a Python dict in s.header, while the data is
+            stored as a Numpy/Scipy array in s.data. All methods from SIMSBase and SIMSLut
+            are inherited. The file is closed immediately after reading.
+
+            This class can open Cameca (nano)SIMS files ('filename.im'), or files compressed
+            with gzip, bzip2, or zip (e.g. 'filename.im.bz2'). With Python 3.3 or newer
+            lzma and xz compressed files are also supported.
+
+            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
+
+            EEG Note: Local import of info.py with 'from .info import *' returns SystemError,
+            it cannot import local file if parent directory isn't in the PYTHONPATH.
+            In this case, navigate up one directory level and call with:
+            s = sims.sims.SIMS(...), so that the parent module is loaded first.
+
+            In addition to header and data, a set of colour look-up tables (LUTs) are also
+            loaded. This requires matplotlib and loads the default backend. To prevent this
+            from happening, give load_luts=False. For more info, see help in SIMSLut class.
+        """
+
         if load_luts:
             SIMSLut.__init__(self)
-        SIMSBase.__init__(self, self.fh)
+        SIMSOpener.__init__(self, filename)
         self.peek()
         self.read_header()
         self.read_data()
-        self.fh.close()
+        self.close()
 
 
 #####################################################################################
