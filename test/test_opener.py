@@ -22,15 +22,13 @@ for f in files:
 
 errors = []
 for f in allfiles:
-    # read only header
-    fh = open(f, mode='rb')
-    s = sims.SIMSBase(fh)
+    s = sims.SIMSOpener(f)
     s.peek()
     try:
         s.read_header()
     except:
         errors.append(f)
-    fh.close()
+    s.close()
 
 if errors:
     print('Problems opening:')
