@@ -148,34 +148,3 @@ def coordinates(*filelist, **kwargs):
     ax.set_xlabel('Stage Y (μm)')
     ax.set_ylabel('Stage X (μm)')
     return fig
-
-def rkeys(dic, root=[], path=[]):
-    """ Recursive dictionary keys.
-
-        Usage: paths = rkeys(dic)
-
-        Recursively reads the keys of a nested dictionary and returns a list of nodes,
-        where each node is a list of path elements. Root will be prepended to all paths
-        found. Path is the output. If it is non-empty, the results from the recursive 
-        search will be appended to it.
-
-        Example:
-          >>> a = {'x': 1, 'y': {'xx': 10, 'yy': 20, 'zz': {'xxx': 100}}, 'z': 4}
-          >>> rkeys(a)
-          [['x'],
-           ['y'],
-           ['y', 'xx'],
-           ['y', 'yy'],
-           ['y', 'zz'],
-           ['y', 'zz', 'xxx'],
-           ['z']]
-    """
-    for key, val in dic.items():
-        if root:
-            node = root + [key]
-        else:
-            node = [key]
-        path.append(node)
-        if isinstance(val, dict):
-            rkeys(val, root=node, path=path)
-    return sorted(path)
