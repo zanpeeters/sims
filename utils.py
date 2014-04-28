@@ -66,7 +66,7 @@ def thumbnails(data, cycle=0, mass=None, labels=None):
 
     mpl.show()
 
-def coordinates(filelist, labels=[]):
+def coordinates(*filelist, **kwargs):
     """ Find all coordinates in a list of image files.
 
         Usage: fig = sims.coordinates([a.im, b.im], labels=['A', 'B'])
@@ -82,12 +82,7 @@ def coordinates(filelist, labels=[]):
     from matplotlib.collections import PatchCollection
     import matplotlib.pyplot as mpl
 
-    if labels:
-        if len(filelist) != len(labels):
-            raise ValueError('Number of labels does not match number of filenames.')
-    else:
-        # use filename for label
-        labels = filelist
+    labels = kwargs.pop('labels', filelist)
 
     patches = []
     x_min = None
