@@ -17,6 +17,12 @@ import zipfile
 from struct import unpack
 import numpy as np
 
+# Return data in pandas 4D frame, if available, numpy array otherwise
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 # available in Python 3.3 and higher, or with non-default extensions
 try:
     import lzma
@@ -38,7 +44,10 @@ class SIMSBase(object):
         """
         self.fh = fileobject
         self.header = {}
-        self.data = np.array([], dtype='uint16')
+        if pd:
+            self.data = pd.Panel4D([[[[]]]], dtype='uint16')
+        else:
+            self.data = np.array([], dtype='uint16')
 
     def peek(self):
         """ Peek into image file and determine basic file information.
@@ -225,9 +234,16 @@ class SIMSBase(object):
             Usage: s.read_data()
 
             Reads all the image data from the file object in s.fh. The data is
-            stored in s.data as a Numpy/Scipy array with 4 dimensions: mass,
-            plane, width, height. The image header must be read before data can
-            be read.
+            stored in s.data. The image header must be read before data can be read.
+
+            Image data are stored as a pandas Panel4D object with species on the
+            'labels' axis, cycles on the 'items' axis, width on the 'major' axis,
+            and height on the 'minor' axis. If pandas is not avaible, a Numpy array
+            with 4 dimensions is stored: mass, cycle, width, height.
+
+            Isotope data are stored as a pandas DataFrame with the measurement time
+            as index and species labels as column headers. If pandas is not available,
+            as Numpy array is stored: s.data[0] is time, s.data[1:] is isotope data.
         """
         if not self.header['data included']:
             pass
@@ -325,13 +341,12 @@ class SIMSBase(object):
                 d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
                 unpack(self.header['byte order'] + '16s 4x 3i 3h 2x 3i', hdr.read(52))
 
-            # this bit same as stage scan, (because in fact, it is)
+            # this bit same as stage scan
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = self._hvcontrol(hdr)
-            hdr.seek(4, 1)
-            if self.header['file type'] == 21:
-                # looks much the same as isotope (26), but have 20 bytes unaccounted for.
-                hdr.seek(20, 1)
+
+            # 24 bytes unknown, not sure if they go here or before AutoCal
+            hdr.seek(24, 1)
         else:
             raise TypeError('What type of image are you? {}'.format(self.header['file type']))
 
@@ -350,7 +365,7 @@ class SIMSBase(object):
         d['presputtering'] = bool(d['presputtering'])
         d['original filename'] = self._cleanup_string(d['original filename'])
 
-        if self.header['file type'] in (21, 27, 29, 39):
+        if self.header['file type'] in (21, 26, 27, 29, 39):
             if self.header['file version'] >= 4108:
                 n = 60
             else:
@@ -362,7 +377,7 @@ class SIMSBase(object):
         d['mass table ptr'] = list(unpack(self.header['byte order'] + n*'i', hdr.read(n*4)))
         d['mass table ptr'] = [n for n in d['mass table ptr'] if n != 0]
 
-        if self.header['file type'] in (21, 22, 41):
+        if self.header['file type'] in (21, 22, 26, 41):
             hdr.seek(4, 1)  # 4 bytes unused
 
         # Mass table, 1 info dict for each mass, indexed by number
@@ -1002,6 +1017,9 @@ class SIMSBase(object):
         # data access faster.
         self.data = self.data.swapaxes(0, 1).copy()
 
+        if pd:
+            self.data = pd.Panel4D(self.data, labels=self.header['label list'])
+
     def _isotope_data(self):
         """ Internal function; read data for isotope type. """
         self.fh.seek(self.header['header size'])
@@ -1018,9 +1036,12 @@ class SIMSBase(object):
             self.fh.seek(4, 1)
             self.data[c:c+2, :] = np.fromfile(self.fh, dtype=dt, count=2*rows).reshape(2, rows)
 
-        # remove every time columns except first
+        # remove every 'time' column except first
         keepcols = [0] + list(range(1, 2*cols, 2))
         self.data = self.data[keepcols]
+        if pd:
+            self.data = pd.DataFrame(self.data[1:].T, index=self.data[0],
+                                     columns=self.header['label list'])
 
     def _cleanup_string(self, bytes):
         """ Internal function; cuts off bytes at first null-byte,
@@ -1271,12 +1292,13 @@ class SIMS(SIMSOpener, SIMSLut):
     def __init__(self, filename, load_luts=False):
         """ Create a SIMS object that will hold all the header information and image data.
             Header information is stored as a Python dict in s.header, while the data is
-            stored as a Numpy/Scipy array in s.data. All methods from SIMSBase and SIMSLut
-            are inherited. The file is closed immediately after reading.
+            stored in s.data as a pandas.Panel4D object if pandas is installed or a Numpy
+            array otherwise. All methods from SIMSBase, SIMSOpener, and SIMSLut are
+            inherited. The file is closed immediately after reading.
 
             This class can open Cameca (nano)SIMS files ('filename.im'), or files compressed
-            with gzip, bzip2, or zip (e.g. 'filename.im.bz2'). With Python 3.3 or newer
-            lzma and xz compressed files are also supported.
+            with gzip or bzip2 (e.g. 'filename.im.bz2'). With Python 3.3 or newer lzma and
+            xz compressed files are also supported.
 
             Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
 
