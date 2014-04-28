@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Tools and utilities for the sims module. """
-from __future__ import print_function, absolute_import, division
-from sims.sims import SIMSBase
+from __future__ import print_function, division
+import re
+import sims
 
 def format_species(name):
     """ Format the name of a chemical species.
@@ -94,11 +95,10 @@ def coordinates(filelist, labels=[]):
     ax = fig.gca()
 
     for fn, lb in zip(filelist, labels):
-        fh = open(fn, mode='rb')
-        s = SIMSBase(fh)
+        s = sims.SIMSOpener(fn)
         s.peek()
         s.read_header()
-        fh.close()
+        s.close()
 
         # Remember!! In Cameca-land, X is up-down, Y is left-right. Fix here.
         x = s.header['sample y']
