@@ -377,6 +377,17 @@ class SIMSBase(object):
 
             mi['Species'] = self._species(hdr)
             d['MassTable'].append(mi)
+
+        # Create a few convenient lists
+        d['mass list'] = []
+        d['label list'] = []
+        d['label list fmt'] = []
+        for m in d['MassTable']:
+            d['mass list'].append(m['mass'])
+            if not m['Species']['label']:
+                m['Species']['label'] = 'SE'
+            d['label list'].append(m['Species']['label'])
+            d['label list fmt'].append(format_species(m['Species']['label']))
         return d
 
     def _autocal(self, hdr):
@@ -384,23 +395,23 @@ class SIMSBase(object):
         # Called AutoCal in OpenMIMS source
         # OpenMIMS says extra unused byte after has autocal for stage scan image; not true
         d = {}
-        d['has autocal'], d['mass label'], d['begin'], d['duration'] = \
+        d['has autocal'], d['label'], d['begin'], d['duration'] = \
             unpack(self.header['byte order'] + 'i 64s 2i', hdr.read(76))
 
         d['has autocal'] = bool(d['has autocal'])
-        d['mass label'] = self._cleanup_string(d['mass label'])
+        d['label'] = self._cleanup_string(d['label'])
         return d
 
     def _hvcontrol(self, hdr):
         """ Internal function; reads 112 bytes, returns HVControl dict. """
         # Called readHvControl by OpenMIMS
         d = {}
-        d['has hvcontrol'], d['mass label'], d['begin'], d['duration'], d['limit low'], \
+        d['has hvcontrol'], d['label'], d['begin'], d['duration'], d['limit low'], \
             d['limit high'], d['step'], d['bandpass width'], d['count time'] = \
             unpack(self.header['byte order'] + 'i 64s 2i 3d i d', hdr.read(112))
 
         d['has hvcontrol'] = bool(d['has hvcontrol'])
-        d['mass label'] = self._cleanup_string(d['mass label'])
+        d['label'] = self._cleanup_string(d['label'])
         return d
 
     def _sigref(self, hdr):
@@ -421,10 +432,10 @@ class SIMSBase(object):
         # Charge is read in OpenMIMS as a char, which is not a Java char (2-bytes),
         # but a single byte char.
         d['numeric flag'], d['numeric value'], d['elements'], \
-            d['charges'], d['charge label'], d['mass label'] = \
+            d['charges'], d['charge label'], d['label'] = \
             unpack(self.header['byte order'] + '4i c 64s', hdr.read(81))
 
-        d['mass label'] = self._cleanup_string(d['mass label'])
+        d['label'] = self._cleanup_string(d['label'])
         d['charge label'] = self._cleanup_string(d['charge label'])
 
         # OpenMIMS says 3 bytes AFTER el.table are unused; this is wrong,
@@ -613,7 +624,7 @@ class SIMSBase(object):
         """ Internal function; reads 192 or 208 bytes; returns Trolley dict """
         # Called TabTrolleyNano in OpenMIMS
         d = {}
-        d['mass label'], d['mass'], d['radius'], d['deflection plate 1'], \
+        d['label'], d['mass'], d['radius'], d['deflection plate 1'], \
             d['deflection plate 2'], d['detector'], d['exit slit'], d['real trolley'], \
             d['trolley index'], d['peakcenter index'], d['peakcenter follow'], d['focus'], \
             d['hmr start'], d['start dac plate 1'], d['start dac plate 2'], \
@@ -629,7 +640,7 @@ class SIMSBase(object):
             hdr.seek(16, 1)
 
         # Cleanup
-        d['mass label'] = self._cleanup_string(d['mass label'])
+        d['label'] = self._cleanup_string(d['label'])
         d['used for baseline'] = bool(d['used for baseline'])
         d['used for sib center'] = bool(d['used for sib center'])
         d['used for energy center'] = bool(d['used for energy center'])
