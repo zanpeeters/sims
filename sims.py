@@ -120,38 +120,41 @@ class SIMSBase(object):
         # From OpenMIMS documentation I know that PolyList is as list of
         # Species dicts, but don't know how to read ChampsList or OffsetList.
         if polylist_pos < 0:
-            # Case 1: no PL
-            msg = 'Beginning of PolyList not found, '
-            msg += 'don\'t know where nanoSIMS header starts.'
-            warnings.warn(msg)
-        else:
-            if (champslist_pos < 0 and offsetlist_pos < 0):
-                # Case 2: PL, NS header
-                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
-            elif (champslist_pos > polylist_pos and offsetlist_pos > polylist_pos):
-                # Case 3: PL, CL, OL, NS header
-                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
-                self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
-                self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
-            elif (champslist_pos < polylist_pos and offsetlist_pos < polylist_pos):
-                # Case 4: PL, CL, OL, partial NS header, PL, NS header
-                # with possible repeat
-                self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
-                self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
-                self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+            if self.header['analysis type'].endswith('RTI'):
+                # Case 1: No PL marker, so far only found for Real Time Images
+                hdr.seek(216, 1)
             else:
-                msg = 'An unknown order of the Poly/Champs/Offset Lists occured.\n'
-                msg += 'Positions: {} {} {}'.format(polylist_pos, champslist_pos, offsetlist_pos)
+                msg = 'No PolyList marker found in header and not and RTI image. '
+                msg += 'Don\'t know how to continue.'
                 raise NotImplementedError(msg)
+        elif (champslist_pos < 0 and offsetlist_pos < 0):
+            # Case 2: PL, NS header
+            self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+        elif (polylist_pos < champslist_pos < offsetlist_pos):
+            # Case 3: PL, CL, OL, NS header
+            self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+            self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
+            self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
+        elif (champslist_pos < offsetlist_pos < polylist_pos):
+            # Case 4: PL, CL, OL, partial NS header, PL, NS header
+            # with possible repeat
+            self.header['ChampsList'] = self._pco_list(hdr, 'champs', champslist_pos)
+            self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
+            self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
+        else:
+            msg = 'An unknown order of the Poly/Champs/Offset Lists occured.\n'
+            msg += 'Positions: PL = {}, CL = {}, OL = {}'
+            msg = msg.format(polylist_pos, champslist_pos, offsetlist_pos)
+            raise NotImplementedError(msg)
 
-            self.header['NanoSIMSHeader'] = self._nanosims_header(hdr)
+        self.header['NanoSIMSHeader'] = self._nanosims_header(hdr)
 
-            # How much to skip? Chomping does not work; what if first value is 0?
-            # This is correct so far, for nsheader v8 and 9
-            hdr.seek(948, 1)
-            self.header['BFields'] = []
-            for b in range(self.header['NanoSIMSHeader']['b fields']):
-                self.header['BFields'].append(self._bfield(hdr))
+        # How much to skip? Chomping does not work; what if first value is 0?
+        # This is correct so far, for nsheader v8 and 9
+        hdr.seek(948, 1)
+        self.header['BFields'] = []
+        for b in range(self.header['NanoSIMSHeader']['b fields']):
+            self.header['BFields'].append(self._bfield(hdr))
         # End nanosims_header/bfield based on Poly_list position
 
         # Analytical parameters
