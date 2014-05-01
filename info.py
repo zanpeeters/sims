@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 """ Info and substitution dicts for sims module. """
 from __future__ import print_function, division
-from .rkeys import rkeys
+try:
+    from .rkeys import rkeys
+except SystemError:
+    from rkeys import rkeys
 
 stage_scan_types = {
     0: 'stage scan',

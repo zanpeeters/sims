@@ -29,8 +29,12 @@ try:
 except ImportError:
     lzma = None
 
-from .info import *
-from .utils import format_species
+try:
+    from .info import *
+    from .utils import format_species
+except SystemError:
+    from info import *
+    from utils import format_species
 
 if sys.version_info.major >= 3:
     unicode = str
