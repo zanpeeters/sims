@@ -23,12 +23,19 @@ try:
 except ImportError:
     pd = None
 
-# available in Python 3.3 and higher, or with non-default extensions
+# available in Python 3.3 and higher
 try:
     import lzma
 except ImportError:
     lzma = None
 
+# py7zlib is needed for 7z, cannot handle xz/lzma archives compressed by xz
+try:
+    import py7zlib
+except ImportError:
+    py7zlib = None
+
+# Local import py2 or 3
 try:
     from .info import *
     from .utils import format_species
@@ -263,14 +270,17 @@ class SIMSBase(object):
         else:
             self._image_data()
 
-    def save_header(self, filename):
-        """ Save full header to a JSON text file.
+    def export_header(self, filename=""):
+        """ Export header to a JSON text file.
 
-            Usage: s.save_header("filename.txt")
+            Usage: s.export_header(filename="alt_filename.txt")
 
             The entire header will be PrettyPrinted to a text file,
-            serialized as JSON in UTF-8 encoding.
+            serialized as JSON in UTF-8 encoding. Uses sims_filename.txt
+            by default.
         """
+        if not filename:
+            filename = self.filename + '.txt'
         class JSONDateTimeEncoder(json.JSONEncoder):
             def default(self, obj):
                 if isinstance(obj, (datetime.date, datetime.datetime)):
@@ -285,6 +295,47 @@ class SIMSBase(object):
                              separators=(',', ': '), cls=JSONDateTimeEncoder),
                   file=fp)
 
+    def export_matlab(self, filename="", prefix='m', **kwargs):
+        """ Export data to MatLab file.
+
+            Usage: s.export_matlab(filename="alt_filename.mat")
+
+            Saves data to filename.im.mat, or alt_filename.mat if supplied. All
+            other keyword arguments are passed on to scipy.io.savemat().
+
+            By default the MatLab file will be saved in MatLab 5 format (the default
+            in MatLab 5 - 7.2), with long_field_names=True (compatible with
+            MatLab 7.6+) and with do_compression=True.
+
+            The data is stored as a dictionary with the labels as keywords and
+            3D numpy arrays as values. Each label is taken from the nanoSIMS label,
+            prefixed with 'prefix' (default 'm'), because MatLab doesn't allow
+            variable names starting with a number.
+        """
+        try:
+            import scipy.io
+        except ImportError:
+            msg = "Scipy not found on your system, MatLab export not available."
+            warnings.warn(msg)
+            return
+
+        if not filename:
+            filename = self.filename
+        if 'do_compression' not in kwargs.keys():
+            kwargs['do_compression'] = True
+        if 'long_field_names' not in kwargs.keys():
+            kwargs['long_field_names'] = True
+
+        export = {}
+        if pd:
+            for l in self.data.labels:
+                export[prefix + l] = np.asarray(self.data[l])
+        else:
+            for n, l in enumerate(self.header['label list']):
+                export[prefix + l] = self.data[n]
+
+        scipy.io.savemat(filename, export, **kwargs)
+
     def get_info(self, *args):
         """ Print info about the header key words.
 
@@ -295,7 +346,7 @@ class SIMSBase(object):
             variables. Running get_info() without arguments will print all header
             information.
         """
-        pass
+        raise NotImplementedError
 
     ### Internal functions
     def _main_header(self, hdr):
@@ -1008,11 +1059,9 @@ class SIMSBase(object):
 
         self.fh.seek(self.header['header size'])
 
-        compressedfiles = (gzip.GzipFile, bz2.BZ2File)
-        try:
-            notrealfiles += (lzma.LZMAFile,)
-        except (NameError, AttributeError):
-            pass
+        compressedfiles = (gzip.GzipFile, bz2.BZ2File, io.BytesIO)
+        if lzma:
+            compressedfiles += (lzma.LZMAFile,)
 
         if isinstance(self.fh, compressedfiles):
             self.data = np.fromstring(self.fh.read(), dtype=dt).reshape(shape)
@@ -1240,40 +1289,63 @@ class SIMSLut(object):
 
 class SIMSOpener(SIMSBase):
     """ SIMS file opener. """
-    def __init__(self, filename):
-        """ Class to open SIMS files, with transparent support for compression.
+    def __init__(self, filename, filenum=0, password=""):
+        """ Class to open SIMS files with transparent support for compression.
             Compression is decided based on file extension. File is opened and the file handle
             passed to a SIMSBase object. Nothing is read.
+
+            For archives with multiple files (.zip, .7z) set filenum to the number of
+            the file to extract (0 is the first file).
+
+            For encrypted archives (.zip, .7z) set password to access the data.
         """
+        self.filename = ""
         if isinstance(filename, (str, unicode)):
-            if filename.lower().endswith('.gz'):
+            base, ext = os.path.splitext(filename)
+            self.filename = base
+            if ext == '.gz':
                 self.fh = gzip.open(filename, mode='rb')
-            elif filename.lower().endswith('.bz2'):
+
+            elif ext == '.bz2':
                 self.fh = bz2.BZ2File(filename, mode='rb')
-            elif filename.lower().endswith('.lzma') or filename.lower().endswith('.xz'):
-                if not lzma:
+
+            elif ext in ('.lzma', '.xz'):
+                if lzma:
+                    self.fh = lzma.LZMAFile(filename, mode='rb')
+                else:
                     msg = 'LZMA module is not installed on your system. Use Python 3.3 or higher,'
                     msg += ' or install a module to handle lzma/xz compressed files.'
-                    raise NotImplementedError(msg)
-                self.fh = lzma.LZMAFile(filename, mode='rb')
-            elif filename.lower().endswith('.zip'):
+                    raise IOError(msg)
+
+            elif ext == '.7z':
+                if py7zlib:
+                    fh_archive = py7zlib.Archive7z(open(filename, mode='rb'))
+
+                    if password:
+                        fh_archive.password = password
+
+                    fh_file = fh_archive.files[filenum]
+                    self.fh = io.BytesIO(fh_file.read())
+                else:
+                    msg = 'pylzma/py7zlib module is not installed on your system. See'
+                    msg += ' http://www.joachim-bauch.de/projects/pylzma'
+                    raise IOError(msg)
+
+            elif ext == '.zip':
                 msg = 'There are too many problems with zip compression support.'
                 msg += ' Use gzip, bzip2, or xz compression instead.'
                 raise NotImplementedError(msg)
                 z = zipfile.ZipFile(filename, mode='r')
-                # zipfile can store multiple files, pick first from list,
-                # raise warning if more than one
                 namelist = z.namelist()
-                if len(namelist) > 1:
-                    msg = 'There are multiple files in this zip file: {}.\n'.format(namelist)
-                    msg += 'Reading only the first file: {}.'.format(namelist[0])
-                    warnings.warn(msg)
-                zf = z.open(namelist[0])
+                zf = z.open(namelist[filenum])
                 # zipfile does not support seek and tell; read entire file,
                 # create BytesIO instead. This is very memory inefficient.
                 self.fh = io.BytesIO(zf.read())
+
             else:
                 self.fh = open(filename, mode='rb')
+                self.filename = filename
+
         # A fileobject needs at least read, seek, and tell.
         elif (hasattr(filename, 'read')
               and hasattr(filename, 'seek')
@@ -1281,10 +1353,13 @@ class SIMSOpener(SIMSBase):
                 # Is it in binary mode?
                 if 'b' in filename.mode:
                     self.fh = filename
+                    self.filename = filename.name
                 else:
-                    raise IOError('Fileobject {} opened in text-mode, reopen with mode="rb".')
+                    msg = 'Fileobject {} opened in text-mode, reopen with mode="rb".'
+                    raise IOError(msg.format(filename))
         else:
-            raise TypeError('Cannot open file {}, don\'t know what it is.')
+            msg = 'Cannot open file {}, don\'t know what it is.'
+            raise TypeError(msg.format(filename))
 
         self.fh.seek(0)
         SIMSBase.__init__(self, self.fh)
