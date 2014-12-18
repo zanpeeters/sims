@@ -1289,15 +1289,17 @@ class SIMSLut(object):
 
 class SIMSOpener(SIMSBase):
     """ SIMS file opener. """
-    def __init__(self, filename, filenum=0, password=""):
+    def __init__(self, filename, file_in_archive=0, password=None):
         """ Class to open SIMS files with transparent support for compression.
-            Compression is decided based on file extension. File is opened and the file handle
-            passed to a SIMSBase object. Nothing is read.
+            Compression type is decided by file extension. File is opened and the file handle
+            is passed to a SIMSBase object. Nothing is read.
 
-            For archives with multiple files (.zip, .7z) set filenum to the number of
-            the file to extract (0 is the first file).
+            For archives with multiple files (.zip, .7z) set file_in_archive to either the
+            number of the file (0 is the first file) or the name of the file to extract. By
+            default, the first file in the archive will be used.
 
-            For encrypted archives (.zip, .7z) set password to access the data.
+            For encrypted archives (.zip, .7z) set password to access the data. For zip format,
+            password must be a byte-string.
         """
         self.filename = ""
         if isinstance(filename, (str, unicode)):
@@ -1319,28 +1321,42 @@ class SIMSOpener(SIMSBase):
 
             elif ext == '.7z':
                 if py7zlib:
-                    fh_archive = py7zlib.Archive7z(open(filename, mode='rb'))
+                    fh_archive = py7zlib.Archive7z(open(filename, mode='rb'), password=password)
 
-                    if password:
-                        fh_archive.password = password
+                    if isinstance(file_in_archive, int):
+                        fh_file = fh_archive.files[file_in_archive]
+                    elif isinstance(file_in_archive, (str, unicode)):
+                        fh_file = fh_archive.files_map[file_in_archive]
+                    else:
+                        msg = 'file_in_archive must be int or str.'
+                        raise TypeError(msg)
 
-                    fh_file = fh_archive.files[filenum]
                     self.fh = io.BytesIO(fh_file.read())
+                    fh_file.close()
+                    fh_archive.close()
                 else:
                     msg = 'pylzma/py7zlib module is not installed on your system. See'
                     msg += ' http://www.joachim-bauch.de/projects/pylzma'
                     raise IOError(msg)
 
             elif ext == '.zip':
-                msg = 'There are too many problems with zip compression support.'
-                msg += ' Use gzip, bzip2, or xz compression instead.'
-                raise NotImplementedError(msg)
-                z = zipfile.ZipFile(filename, mode='r')
-                namelist = z.namelist()
-                zf = z.open(namelist[filenum])
-                # zipfile does not support seek and tell; read entire file,
-                # create BytesIO instead. This is very memory inefficient.
-                self.fh = io.BytesIO(zf.read())
+                fh_archive = zipfile.ZipFile(filename, mode='r')
+
+                if password:
+                    fh_archive.setpassword(password)
+
+                if isinstance(file_in_archive, int):
+                    infolist = fh_archive.infolist()
+                    fh_file = fh_archive.open(infolist[file_in_archive])
+                elif isinstance(file_in_archive, (str, unicode)):
+                    fh_file = fh_archive.open(file_in_archive)
+                else:
+                    msg = 'file_in_archive must be int or str.'
+                    raise TypeError(msg)
+
+                self.fh = io.BytesIO(fh_file.read())
+                fh_file.close()
+                fh_archive.close()
 
             else:
                 self.fh = open(filename, mode='rb')
