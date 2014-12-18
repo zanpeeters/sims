@@ -2,10 +2,6 @@
 # -*- coding: utf-8 -*-
 """ Info and substitution dicts for sims module. """
 from __future__ import print_function, division
-try:
-    from .rkeys import rkeys
-except SystemError:
-    from rkeys import rkeys
 
 stage_scan_types = {
     0: 'stage scan',
@@ -376,6 +372,3 @@ header_info = {
         'original filename':    'Filename as stored in the file; 64 characters max (str)',
     }
 }
-
-# Run this on import, so that the paths are generated only once
-header_info_paths = rkeys(header_info)
