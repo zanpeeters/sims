@@ -1362,10 +1362,8 @@ class SIMSOpener(SIMSBase):
                 self.fh = open(filename, mode='rb')
                 self.filename = filename
 
-        # A fileobject needs at least read, seek, and tell.
-        elif (hasattr(filename, 'read')
-              and hasattr(filename, 'seek')
-              and hasattr(filename, 'tell')):
+        elif hasattr(filename, 'read'):
+            if (hasattr(filename, 'seek') and hasattr(filename, 'tell')):
                 # Is it in binary mode?
                 if 'b' in filename.mode:
                     self.fh = filename
@@ -1373,6 +1371,10 @@ class SIMSOpener(SIMSBase):
                 else:
                     msg = 'Fileobject {} opened in text-mode, reopen with mode="rb".'
                     raise IOError(msg.format(filename))
+            else:
+                # Read but no seek and/or tell: wrap in BytesIO; let's hope it has a name.
+                self.fh = io.BytesIO(filename.read())
+                self.filename = filename.name
         else:
             msg = 'Cannot open file {}, don\'t know what it is.'
             raise TypeError(msg.format(filename))
