@@ -1300,6 +1300,8 @@ class SIMSOpener(SIMSBase):
 
             For encrypted archives (.zip, .7z) set password to access the data. For zip format,
             password must be a byte-string.
+
+            SIMSOpener supports the 'with' statement.
         """
         self.filename = ""
         if isinstance(filename, (str, unicode)):
@@ -1385,6 +1387,12 @@ class SIMSOpener(SIMSBase):
     def close(self):
         """ Close the file. """
         self.fh.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.close()
 
 
 class SIMS(SIMSOpener, SIMSLut):
