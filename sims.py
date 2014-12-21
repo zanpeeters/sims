@@ -14,6 +14,7 @@ import json
 import gzip
 import bz2
 import zipfile
+import tarfile
 from struct import unpack
 import numpy as np
 
@@ -1059,7 +1060,7 @@ class SIMSBase(object):
 
         self.fh.seek(self.header['header size'])
 
-        compressedfiles = (gzip.GzipFile, bz2.BZ2File, io.BytesIO)
+        compressedfiles = (gzip.GzipFile, bz2.BZ2File, tarfile.ExFileObject, io.BytesIO)
         if lzma:
             compressedfiles += (lzma.LZMAFile,)
 
@@ -1294,18 +1295,29 @@ class SIMSOpener(SIMSBase):
             Compression type is decided by file extension. File is opened and the file handle
             is passed to a SIMSBase object. Nothing is read.
 
-            For archives with multiple files (.zip, .7z) set file_in_archive to either the
-            number of the file (0 is the first file) or the name of the file to extract. By
-            default, the first file in the archive will be used.
+            For archives with multiple files (zip, 7z, tar, compressed tar) set
+            file_in_archive to either the number of the file (0 is the first file)
+            or the name of the file to extract. By default, the first file in the archive
+            will be used.
 
-            For encrypted archives (.zip, .7z) set password to access the data. For zip format,
+            For encrypted archives (zip, 7z) set password to access the data. For zip format,
             password must be a byte-string.
 
             SIMSOpener supports the 'with' statement.
         """
-        self.filename = ""
+        if not isinstance(file_in_archive, (int, str, unicode)):
+            raise TypeError('file_in_archive must be int or str.')
+
+        self.filename = ''
+        self.fh_archive = None
+
         if isinstance(filename, (str, unicode)):
             base, ext = os.path.splitext(filename)
+            base_maybe, ext_maybe = os.path.splitext(base)
+            if ext_maybe == '.tar':
+                base = base_maybe
+                ext = ext_maybe + ext
+
             self.filename = base
             if ext == '.gz':
                 self.fh = gzip.open(filename, mode='rb')
@@ -1321,21 +1333,33 @@ class SIMSOpener(SIMSBase):
                     msg += ' or install a module to handle lzma/xz compressed files.'
                     raise IOError(msg)
 
+            elif ext in ('.tar', '.tar.bz2', '.tbz', '.tbz2', '.tar.gz', '.tgz',
+                         '.tar.xz', '.txz', '.tar.lzma', '.tlz'):
+                self.fh_archive = tarfile.open(filename, mode='r')
+                if isinstance(file_in_archive, int):
+                    if file_in_archive == 0:
+                        # No need to scan trough entire tar first
+                        m = self.fh_archive.firstmember
+                    else:
+                        m = self.fh_archive.getmembers()
+                        m = m[file_in_archive]
+                    self.fh = self.fh_archive.extractfile(m)
+                    self.filename = m.name
+                else:
+                    self.fh = self.fh_archive.extractfile(file_in_archive)
+                    self.filename = file_in_archive
+
             elif ext == '.7z':
                 if py7zlib:
-                    fh_archive = py7zlib.Archive7z(open(filename, mode='rb'), password=password)
+                    with open(filename, mode='rb') as fh_raw:
+                        archive = py7zlib.Archive7z(fh_raw, password=password)
 
-                    if isinstance(file_in_archive, int):
-                        fh_file = fh_archive.files[file_in_archive]
-                    elif isinstance(file_in_archive, (str, unicode)):
-                        fh_file = fh_archive.files_map[file_in_archive]
-                    else:
-                        msg = 'file_in_archive must be int or str.'
-                        raise TypeError(msg)
+                        if isinstance(file_in_archive, int):
+                            f = archive.files[file_in_archive]
+                        else:
+                            f = archive.files_map[file_in_archive]
 
-                    self.fh = io.BytesIO(fh_file.read())
-                    fh_file.close()
-                    fh_archive.close()
+                        self.fh = io.BytesIO(f.read())
                 else:
                     msg = 'pylzma/py7zlib module is not installed on your system. See'
                     msg += ' http://www.joachim-bauch.de/projects/pylzma'
@@ -1350,11 +1374,8 @@ class SIMSOpener(SIMSBase):
                 if isinstance(file_in_archive, int):
                     infolist = fh_archive.infolist()
                     fh_file = fh_archive.open(infolist[file_in_archive])
-                elif isinstance(file_in_archive, (str, unicode)):
-                    fh_file = fh_archive.open(file_in_archive)
                 else:
-                    msg = 'file_in_archive must be int or str.'
-                    raise TypeError(msg)
+                    fh_file = fh_archive.open(file_in_archive)
 
                 self.fh = io.BytesIO(fh_file.read())
                 fh_file.close()
@@ -1387,6 +1408,8 @@ class SIMSOpener(SIMSBase):
     def close(self):
         """ Close the file. """
         self.fh.close()
+        if self.fh_archive:
+            self.fh_archive.close()
 
     def __enter__(self):
         return self
@@ -1397,32 +1420,32 @@ class SIMSOpener(SIMSBase):
 
 class SIMS(SIMSOpener, SIMSLut):
     """ Read a (nano)SIMS file and load the full header and image data. """
-    def __init__(self, filename, load_luts=False):
+    def __init__(self, filename, load_luts=False, file_in_archive=0):
         """ Create a SIMS object that will hold all the header information and image data.
+
+            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
+
             Header information is stored as a Python dict in s.header, while the data is
             stored in s.data as a pandas.Panel4D object if pandas is installed or a Numpy
             array otherwise. All methods from SIMSBase, SIMSOpener, and SIMSLut are
             inherited. The file is closed immediately after reading.
 
-            This class can open Cameca (nano)SIMS files ('filename.im'), or files compressed
-            with gzip or bzip2 (e.g. 'filename.im.bz2'). With Python 3.3 or newer lzma and
-            xz compressed files are also supported.
-
-            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
-
-            EEG Note: Local import of info.py with 'from .info import *' returns SystemError,
-            it cannot import local file if parent directory isn't in the PYTHONPATH.
-            In this case, navigate up one directory level and call with:
-            s = sims.sims.SIMS(...), so that the parent module is loaded first.
+            This class can open Cameca (nano)SIMS files and transparently supports
+            compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and opening from
+            multifile archives (tar, compressed tar, zip, 7zip). Set file_in_archive
+            to the filename to extract, or the sequence number of the file in the
+            archive (0 is the first file). It's also possible to supply a file object 
+            to an already opened file. In fact, SIMS can read from anything that provides
+            a read() function, although reading from a buffered object (with seek() and
+            tell() support) is much more efficient.
 
             In addition to header and data, a set of colour look-up tables (LUTs) are also
             loaded. This requires matplotlib and loads the default backend. To prevent this
             from happening, give load_luts=False. For more info, see help in SIMSLut class.
         """
-
         if load_luts:
             SIMSLut.__init__(self)
-        SIMSOpener.__init__(self, filename)
+        SIMSOpener.__init__(self, filename, file_in_archive=file_in_archive)
         self.peek()
         self.read_header()
         self.read_data()
