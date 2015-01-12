@@ -1114,22 +1114,25 @@ class SIMSBase(object):
     def _cleanup_date(self, date):
         """ Internal function; reads date-string, returns Python datetime object.
             Assumes date-part and time-part are space separated, date is dot-separated,
-            and time is colon-separated. Returns None if date is empty or not a string.
+            and time is colon-separated. Returns None if date is empty, contains 'N/A',
+            or is not a string.
         """
-        if not (date and isinstance(date, (str, unicode))):
+        if (not date 
+            or not isinstance(date, (str, unicode))
+            or 'N/A' in date):
             return None
 
         date, time = date.split()
         day, month, year = date.split('.')
         hour, minute = time.split(':')
         year, month, day, hour, minute = [int(x) for x in (year, month, day, hour, minute)]
-
+        
         # For 2-digit years, 1969/2068 is the wrap-around (POSIX standard)
         if (69 <= year < 100):
             year += 1900
         elif (0 <= year < 69):
             year += 2000
-
+        
         return datetime.datetime(year, month, day, hour, minute)
 
     def _chomp(self, hdr, filler=(b'\x00\x00\x00\x00', b'\xCC\xCC\xCC\xCC'), chunk=4):
