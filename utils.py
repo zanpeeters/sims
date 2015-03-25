@@ -5,20 +5,38 @@ from __future__ import print_function, division
 import re
 import sims
 
-def format_species(name):
+def format_species(name, mhchem=False, mathrm=False):
     """ Format the name of a chemical species.
 
-        Usage: formatted_name = format_species(name)
+        Usage: formatted_name = format_species(name, mhchem=False)
 
         Takes a string which represent of an atomic or molecular species
         and returns a string with LaTeX-style sub- and superscripts for input
         into Matplotlib. Multiple atoms in the input string are expected to be
         space-separated within a molecule, as in Cameca formatting. Irregularly
         formatted strings are silently skipped.
+        
+        If mhchem=True, the \ce command from the mhchem package is used to
+        format species names. This gives much better results, but requires LaTeX
+        and mhchem to be installed. For this to typeset properly in matplotlib,
+        set 'text.usetex' to True and include '\\usepackage[version=3]{mhchem}'
+        in 'text.latex.preamble' (or 'pgf.preamble' when exporting as pgf) in
+        rcParams or matplotlibrc.
+        
+        If mathrm=True, a \mathrm command is inserted, to typeset upright
+        letters. Useful when the full LaTeX engine is used (text.usetex: True in
+        matplotlibrc); LaTeX typesets math mode text in italic by default. This
+        option is ignored if mhchem=True.
 
         Example:
         >>> format_species('12C2 2H')
         '${}^{12}C_{2}{}^{2}H_{}$'
+
+        >>> format_species('12C2 2H', mathrm=True)
+        '$\mathrm{{}^{12}C_{2}{}^{2}H_{}}$'
+        
+        >>> format_species('12C2 2H', mhchem=True)
+        '\ce{^{12}C}
     """
     # {} is format subst. {{}} is literal {} after expansion.
     # {{{}}} is a subst inside a literal {} after expansion.
@@ -27,15 +45,24 @@ def format_species(name):
     # The string 1A2 expands to: '{}^{1}A_{2}'
     template = '{{}}^{{{mass}}}{elem}_{{{stoich}}}'
 
+    if mhchem:
+        begin = '\ce{'
+        end = '}'
+        template = '^{{{mass}}}{elem}{stoich}'
+    elif mathrm:
+        begin = '$\mathrm{'
+        end = '}$'
+    else:
+        begin = end = '$'
+
     atoms = name.split()
-    out = '$'
+    body = ''
     for a in atoms:
         parts = re.split('([a-zA-Z]+)', a)
-        if len(parts) != 3: continue
-        out += template.format(mass=parts[0], elem=parts[1], stoich=parts[2])
-    out += '$'
-    if out == '$$': out = ''
-    return out
+        if len(parts) != 3: return ''
+        body += template.format(mass=parts[0], elem=parts[1], stoich=parts[2])
+
+    return begin + body + end
 
 
 def thumbnails(data, cycle=0, mass=None, labels=None):
