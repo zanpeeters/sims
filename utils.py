@@ -93,15 +93,15 @@ def thumbnails(data, cycle=0, mass=None, labels=None):
 
     mpl.show()
 
-def coordinates(*filelist, **kwargs):
+def coordinates(filelist, **kwargs):
     """ Find all coordinates in a list of image files.
 
         Usage: fig = sims.coordinates([a.im, b.im], labels=['A', 'B'])
 
         For each image in the list, the stage coordinates and raster size are extracted.
-        A box of the scaled to the rastersize is plotted for each image on a (X,Y) grid.
+        A box scaled to the rastersize is plotted for each image on a (X,Y) grid.
         A label for each file can be given. If it's omitted, the filename will be printed
-        over the box.
+        over the box, but no attempt is made to make the filename fit in the box.
 
         Returns a matplotlib figure instance.
     """
