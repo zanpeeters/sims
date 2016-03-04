@@ -1055,8 +1055,8 @@ class SIMSBase(object):
 
         shape = [self.header['Image']['planes'],
                  self.header['Image']['masses'],
-                 self.header['Image']['width'],
-                 self.header['Image']['height']]
+                 self.header['Image']['height'],
+                 self.header['Image']['width']]
 
         self.fh.seek(self.header['header size'])
 
