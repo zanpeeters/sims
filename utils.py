@@ -175,3 +175,29 @@ def coordinates(filelist, **kwargs):
     ax.set_xlabel('Stage Y (μm)')
     ax.set_ylabel('Stage X (μm)')
     return fig
+
+
+def export_fits(simsobj, filename):
+    """ Export SIMS data as a FITS file.
+
+        Only the totals (sum along axis 1) is saved, one image for each mass.
+        Data is saved with BITPIX = 32 (uint32).
+    """
+    fits = None
+    try:
+        from astropy.io import fits
+    except ImportError:
+        pass
+    
+    try:
+        import pyfits as fits
+    except ImportError:
+        pass
+    
+    if not fits:
+        msg = 'You need to install either pyfits or astropy to be able to export FITS files.'
+        raise ImportError(msg)
+    
+    totals = simsobj.data.sum(axis=1)
+    hdu = fits.PrimaryHDU(totals.astype('uint32'))
+    hdu.writeto(filename)
