@@ -1293,8 +1293,8 @@ class SIMSLut(object):
                 mpl.register_cmap(cmap=lut)
 
 
-class SIMSOpener(SIMSBase, TransparentOpen):
-    """ SIMS file opener. """
+class SIMSReader(SIMSBase, TransparentOpen):
+    """ Read a sims file. """
     def __init__(self, filename, file_in_archive=0, password=None):
         """ Class to open SIMS files with transparent support for compression.
             Compression type is decided by file extension. File is opened and the file handle
@@ -1308,7 +1308,7 @@ class SIMSOpener(SIMSBase, TransparentOpen):
             For encrypted archives (zip, 7z) set password to access the data. For zip format,
             password must be a byte-string.
 
-            SIMSOpener supports the 'with' statement.
+            SIMSReader supports the 'with' statement.
         """
         TransparentOpen.__init__(self, filename, file_in_archive=file_in_archive,
                                  password=password)
@@ -1316,7 +1316,7 @@ class SIMSOpener(SIMSBase, TransparentOpen):
         SIMSBase.__init__(self, self.fh)
 
 
-class SIMS(SIMSOpener, SIMSLut):
+class SIMS(SIMSReader, SIMSLut):
     """ Read a (nano)SIMS file and load the full header and image data. """
     def __init__(self, filename, load_luts=False, file_in_archive=0, password=None):
         """ Create a SIMS object that will hold all the header information and image data.
@@ -1325,7 +1325,7 @@ class SIMS(SIMSOpener, SIMSLut):
 
             Header information is stored as a Python dict in s.header, while the data is
             stored in s.data as a pandas.Panel4D object if pandas is installed or a Numpy
-            array otherwise. All methods from SIMSBase, SIMSOpener, and SIMSLut are
+            array otherwise. All methods from SIMSBase, SIMSReader, and SIMSLut are
             inherited. The file is closed immediately after reading.
 
             This class can open Cameca (nano)SIMS files and transparently supports
@@ -1343,7 +1343,7 @@ class SIMS(SIMSOpener, SIMSLut):
         """
         if load_luts:
             SIMSLut.__init__(self)
-        SIMSOpener.__init__(self, filename, file_in_archive=file_in_archive,
+        SIMSReader.__init__(self, filename, file_in_archive=file_in_archive,
                             password=password)
         self.peek()
         self.read_header()
