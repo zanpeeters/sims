@@ -40,9 +40,11 @@ except ImportError:
 try:
     from .info import *
     from .utils import format_species
+    from .transparent import TransparentOpen
 except SystemError:
     from info import *
     from utils import format_species
+    from transparent import TransparentOpen
 
 if sys.version_info.major >= 3:
     unicode = str
@@ -1291,7 +1293,7 @@ class SIMSLut(object):
                 mpl.register_cmap(cmap=lut)
 
 
-class SIMSOpener(SIMSBase):
+class SIMSOpener(SIMSBase, TransparentOpen):
     """ SIMS file opener. """
     def __init__(self, filename, file_in_archive=0, password=None):
         """ Class to open SIMS files with transparent support for compression.
@@ -1308,122 +1310,15 @@ class SIMSOpener(SIMSBase):
 
             SIMSOpener supports the 'with' statement.
         """
-        if not isinstance(file_in_archive, (int, str, unicode)):
-            raise TypeError('file_in_archive must be int or str.')
-
-        self.filename = ''
-        self.fh_archive = None
-
-        if isinstance(filename, (str, unicode)):
-            base, ext = os.path.splitext(filename)
-            base_maybe, ext_maybe = os.path.splitext(base)
-            if ext_maybe == '.tar':
-                base = base_maybe
-                ext = ext_maybe + ext
-
-            self.filename = base
-            if ext == '.gz':
-                self.fh = gzip.open(filename, mode='rb')
-
-            elif ext == '.bz2':
-                self.fh = bz2.BZ2File(filename, mode='rb')
-
-            elif ext in ('.lzma', '.xz'):
-                if lzma:
-                    self.fh = lzma.LZMAFile(filename, mode='rb')
-                else:
-                    msg = 'LZMA module is not installed on your system. Use Python 3.3 or higher,'
-                    msg += ' or install a module to handle lzma/xz compressed files.'
-                    raise IOError(msg)
-
-            elif ext in ('.tar', '.tar.bz2', '.tbz', '.tbz2', '.tar.gz', '.tgz',
-                         '.tar.xz', '.txz', '.tar.lzma', '.tlz'):
-                self.fh_archive = tarfile.open(filename, mode='r')
-                if isinstance(file_in_archive, int):
-                    if file_in_archive == 0:
-                        # No need to scan trough entire tar first
-                        m = self.fh_archive.firstmember
-                    else:
-                        m = self.fh_archive.getmembers()
-                        m = m[file_in_archive]
-                    self.fh = self.fh_archive.extractfile(m)
-                    self.filename = m.name
-                else:
-                    self.fh = self.fh_archive.extractfile(file_in_archive)
-                    self.filename = file_in_archive
-
-            elif ext == '.7z':
-                if py7zlib:
-                    with open(filename, mode='rb') as fh_raw:
-                        archive = py7zlib.Archive7z(fh_raw, password=password)
-
-                        if isinstance(file_in_archive, int):
-                            f = archive.files[file_in_archive]
-                        else:
-                            f = archive.files_map[file_in_archive]
-
-                        self.fh = io.BytesIO(f.read())
-                else:
-                    msg = 'pylzma/py7zlib module is not installed on your system. See'
-                    msg += ' http://www.joachim-bauch.de/projects/pylzma'
-                    raise IOError(msg)
-
-            elif ext == '.zip':
-                fh_archive = zipfile.ZipFile(filename, mode='r')
-
-                if password:
-                    fh_archive.setpassword(password)
-
-                if isinstance(file_in_archive, int):
-                    infolist = fh_archive.infolist()
-                    fh_file = fh_archive.open(infolist[file_in_archive])
-                else:
-                    fh_file = fh_archive.open(file_in_archive)
-
-                self.fh = io.BytesIO(fh_file.read())
-                fh_file.close()
-                fh_archive.close()
-
-            else:
-                self.fh = open(filename, mode='rb')
-                self.filename = filename
-
-        elif hasattr(filename, 'read'):
-            if (hasattr(filename, 'seek') and hasattr(filename, 'tell')):
-                # Is it in binary mode?
-                if 'b' in filename.mode:
-                    self.fh = filename
-                    self.filename = filename.name
-                else:
-                    msg = 'Fileobject {} opened in text-mode, reopen with mode="rb".'
-                    raise IOError(msg.format(filename))
-            else:
-                # Read but no seek and/or tell: wrap in BytesIO; let's hope it has a name.
-                self.fh = io.BytesIO(filename.read())
-                self.filename = filename.name
-        else:
-            msg = 'Cannot open file {}, don\'t know what it is.'
-            raise TypeError(msg.format(filename))
-
+        TransparentOpen.__init__(self, filename, file_in_archive=file_in_archive,
+                                 password=password)
         self.fh.seek(0)
         SIMSBase.__init__(self, self.fh)
-
-    def close(self):
-        """ Close the file. """
-        self.fh.close()
-        if self.fh_archive:
-            self.fh_archive.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        self.close()
 
 
 class SIMS(SIMSOpener, SIMSLut):
     """ Read a (nano)SIMS file and load the full header and image data. """
-    def __init__(self, filename, load_luts=False, file_in_archive=0):
+    def __init__(self, filename, load_luts=False, file_in_archive=0, password=None):
         """ Create a SIMS object that will hold all the header information and image data.
 
             Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
@@ -1448,7 +1343,8 @@ class SIMS(SIMSOpener, SIMSLut):
         """
         if load_luts:
             SIMSLut.__init__(self)
-        SIMSOpener.__init__(self, filename, file_in_archive=file_in_archive)
+        SIMSOpener.__init__(self, filename, file_in_archive=file_in_archive,
+                            password=password)
         self.peek()
         self.read_header()
         self.read_data()
