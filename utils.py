@@ -4,6 +4,7 @@
 from __future__ import print_function, division
 import re
 import sims
+import numpy as np
 
 def format_species(name, mhchem=False, mathrm=False):
     """ Format the name of a chemical species.
@@ -177,27 +178,85 @@ def coordinates(filelist, **kwargs):
     return fig
 
 
-def export_fits(simsobj, filename):
-    """ Export SIMS data as a FITS file.
+def export_fits(data, filename, extend=False, **kwargs):
+    """ Export data to a FITS file.
 
-        Only the totals (sum along axis 1) is saved, one image for each mass.
-        Data is saved with BITPIX = 32 (uint32).
+        Data can be pandas data structure or numpy ndarray.
+        Filename is the filename the FITS will will be saved to.
+
+        By default, the data structure will be saved as is, i.e.
+        a 3D data cube will be saved as such. Set extend=True to
+        unroll the outer dimension and save the remaining data
+        structures as a list of HDUs (Header Data Units, see
+        FITS documentation); a 3D data cube will be saved as a
+        list of 2D images.
+
+        Aditional arguments are sent to fits.writeto(), see
+        astropy.io.fits for more info.
     """
     fits = None
     try:
         from astropy.io import fits
     except ImportError:
         pass
-    
+
     try:
         import pyfits as fits
     except ImportError:
         pass
-    
+
     if not fits:
         msg = 'You need to install either pyfits or astropy to be able to export FITS files.'
         raise ImportError(msg)
-    
-    totals = simsobj.data.sum(axis=1)
-    hdu = fits.PrimaryHDU(totals.astype('uint32'))
-    hdu.writeto(filename)
+
+    if hasattr(data, 'values'):
+        # any of the pandas data structures; extract ndarray
+        data = data.values
+
+    # FITS supports the following data formats, given as BITPIX in header
+    # BITPIX    format
+    # 8         unsigned 8-bit integer
+    # 16        signed 16-bit integer
+    # 32        two's complement 32-bit integer
+    # -32       IEEE 32-bit float
+    # -64       IEEE 64-bit float
+
+    # PyFITS handles uint16 and uint32 by storing as int16 and int32
+    # and setting BZERO offset. int8, float16, and float128 give KeyError.
+
+    # PyFITS will save (u)int64, but is non standard and at least Source Extractor
+    # does not recognise it. Downcast if possible, error otherwise. Everything
+    # else is handled by PyFITS.
+
+    if data.dtype in (np.uint64, np.int64):
+        if (data.min() >= np.iinfo('i4').min and
+            data.max() <= np.iinfo('i4').max):
+                data = data.astype('i4', copy=False)
+        elif (data.min() >= np.iinfo('u4').min and
+            data.max() <= np.iinfo('u4').max):
+                data = data.astype('u4', copy=False)
+        else:
+            msg = 'Data is (u)int64 and cannot safely be downcast to (u)int32.'
+            raise ValueError(msg)
+    elif data.dtype == np.int8:
+        if data.min() >= 0:
+            data = data.astype('u1', copy=False)
+        else:
+            data = data.astype('i2', copy=False)
+    elif data.dtype == np.float16:
+        data = data.astype('f4', copy=False)
+    elif data.dtype == np.float128:
+        if (data.min() >= np.finfo('f8').min and
+            data.max() <= np.finfo('f8').max) :
+                data = data.astype('f8', copy=False)
+        else:
+            msg = 'Data is float128 and cannot safely be downcast to float64.'
+            raise ValueError(msg)
+
+    if extend:
+        hl = [fits.PrimaryHDU()] + [fits.ImageHDU(n) for n in data]
+        hdulist = fits.HDUList(hl)
+        hdulist.writeto(filename, **kwargs)
+    else:
+        hdu = fits.PrimaryHDU(data)
+        hdu.writeto(filename, **kwargs)
