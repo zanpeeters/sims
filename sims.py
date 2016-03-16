@@ -7,7 +7,6 @@ import io
 import sys
 import os
 import re
-import inspect
 import datetime
 import warnings
 import json
@@ -1150,149 +1149,6 @@ class SIMSBase(object):
         hdr.seek(-1 * chunk, 1)
 
 
-class SIMSLut(object):
-    """ SIMS Look-up table object. """
-    def __init__(self, smooth=True):
-        """ Reads all Look-Up Tables (LUTs) from the Cameca-supplied lut files and
-            the L'image colour table file, converts them to Matplotlib Colormaps,
-            and registers them with Matplotlib. Use mpl.colormaps() to see all
-            registered Colormaps and mpl.set_cmap() to set the Colormap to use.
-
-            By default, smooth gradient Colormaps (LinearSegmentedColormap) is
-            created. Some LUTs, however, are meant to be used with hard edges and
-            strong contrast between adjacent colours. To disable the smooth
-            gradient, set smooth=False and ListedColormaps will be created in
-            stead. Alternatively, reload one or several Colormaps by calling
-            read_cameca_lut() or read_limage_lut() with smooth=False and the
-            names of the LUTs to be reloaded.
-        """
-        import matplotlib.pyplot as mpl
-        import matplotlib.colors as mpc
-
-        # Default directory is 'lut' alongside sims.py
-        self.lut_dir = inspect.getfile(self.__class__)
-        self.lut_dir = os.path.abspath(self.lut_dir)
-        self.lut_dir = os.path.dirname(self.lut_dir)
-        self.lut_dir = os.path.join(self.lut_dir, 'lut')
-
-        self.limage_file = os.path.join(self.lut_dir, 'limagecolors.tbl')
-
-        # load all
-        self.read_cameca_lut(smooth=smooth)
-        self.read_limage_lut(smooth=smooth)
-
-    def read_cameca_lut(self, *names, **kwargs):
-        """ Load a Cameca Look-Up Table.
-
-            Usage: read_cameca_lut('cameca bw', 'temp', ..., smooth=True)
-
-            Reads one or more LUTs from the Cameca supplied LUT files, converts it to a
-            Matplotlib Colormap and registers it with Matplotlib. The Colormaps will
-            be registered with a 'cameca ' prefix to distinguish them from the L'image
-            LUTs and Matplotlib's own Colormaps. To (re)load a specific LUT, the
-            'cameca ' prefix may be omitted.
-
-            If no name is given, all LUTs in the lut-directory will be loaded. The lut-
-            directory is stored under 'lut_dir'. That name can be changed to load from
-            a different directory.
-
-            By default, a smooth gradient Colormap (LinearSegmentedColormap) is created
-            from the data in the LUT. Some LUTs, however, are meant to be used with
-            hard edges and strong contrast between adjacent colours. To disable the
-            smooth gradient, set smooth=False and a ListedColormap will be created in
-            stead.
-        """
-        if len(names) == 0:
-            fnames = os.listdir(self.lut_dir)
-            fnames = [os.path.join(self.lut_dir, n) for n in fnames if n.endswith('.lut')]
-        else:
-            names = [n[7:] for n in names if n.startswith('cameca ')]
-            fnames = [os.path.join(self.lut_dir, n, '.lut') for n in names]
-
-        smooth = kwargs.pop('smooth', True)
-
-        # All luts need to be 0-1 normalized
-        norm = mpc.Normalize(vmin=0, vmax=255)
-
-        for fname in fnames:
-            with open(fname, mode='rb') as fh:
-                # skip header
-                fh.seek(76)
-                # Data is in single bytes, 3 rows of unknown length (either 128 or 256)
-                # Data is also double, each row appears twice (from-to?)
-                lut_data = np.fromfile(fh, dtype='B').reshape(3, -1).T[::2]
-
-            name = os.path.basename(fname)
-            name = 'cameca ' + os.path.splitext(name)[0]
-
-            lut_data = norm(lut_data)
-
-            if smooth:
-                lut = mpc.LinearSegmentedColormap.from_list(name, lut_data)
-            else:
-                lut = mpc.ListedColormap(lut_data, name=name)
-            mpl.register_cmap(cmap=lut)
-
-    def read_limage_lut(self, *names, **kwargs):
-        """ Load a L'image Look-Up Table.
-
-            Usage: read_limage_lut('blue/white', 'limage prism', ..., smooth=True)
-
-            Reads one or more LUTs from the L'image colortable file, converts it to a
-            Matplotlib Colormap and registers it with Matplotlib. The Colormaps will
-            be registered with a 'limage ' prefix to distinguish them from the Cameca-
-            supplied LUTs and Matplotlib's own Colormaps. To (re)load a specific LUT,
-            the 'limage ' prefix may be omitted.
-
-            If no name is given, all LUTs in the file will be loaded. The LUTs are read
-            from the filename stored under 'limage_file'. That name can be changed to
-            load from a different file.
-
-            By default, a smooth gradient Colormap (LinearSegmentedColormap) is created
-            from the data in the LUT. Some LUTs, however, are meant to be used with
-            hard edges and strong contrast between adjacent colours. To disable the
-            smooth gradient, set smooth=False and a ListedColormap will be created in
-            stead.
-        """
-        names = [n[7:] for n in names if n.startswith('limage ')]
-
-        smooth = kwargs.pop('smooth', True)
-
-        fh = open(self.limage_file, mode='rb')
-        hdr = fh.read(32)
-        data = fh.read()
-        fh.close()
-
-        if 'PV-WAVE CT' not in hdr[:16].decode('utf-8'):
-            raise TypeError('File {} is not a PV-Wave ColorTable.'.format(limage_file))
-
-        # All luts need to be 0-1 normalized
-        norm = mpc.Normalize(vmin=0, vmax=255)
-
-        # Number of LUTs stored as number in an ascii-encoded, null-padded string (jeez)
-        n_luts = hdr[16:].decode('utf-8').strip(' \x00')
-        n_luts = int(n_luts)
-        offset = 32 * n_luts
-        for l in range(n_luts):
-            name = data[l*32:(l+1)*32].decode('utf-8').strip(' \x00').lower()
-            # len(name) == 0 -> load all
-            # lut_name in names -> this is (the) one we need
-            # not name.startswith('?') -> signifies empty table entry
-            if (not name.startswith('?')) and ((name in names) or (len(names) == 0)):
-                name = 'limage ' + name
-
-                lut_data = np.fromstring(data[offset + l*768:offset + (l+1)*768],
-                                         dtype='B').reshape(3, 256).T
-                lut_data = norm(lut_data)
-
-                if smooth:
-                    lut = mpc.LinearSegmentedColormap.from_list(name, lut_data)
-                else:
-                    lut = mpc.ListedColormap(lut_data, name=name)
-
-                mpl.register_cmap(cmap=lut)
-
-
 class SIMSReader(SIMSBase, TransparentOpen):
     """ Read a sims file. """
     def __init__(self, filename, file_in_archive=0, password=None):
@@ -1316,7 +1172,7 @@ class SIMSReader(SIMSBase, TransparentOpen):
         SIMSBase.__init__(self, self.fh)
 
 
-class SIMS(SIMSReader, SIMSLut):
+class SIMS(SIMSReader):
     """ Read a (nano)SIMS file and load the full header and image data. """
     def __init__(self, filename, load_luts=False, file_in_archive=0, password=None):
         """ Create a SIMS object that will hold all the header information and image data.
@@ -1336,13 +1192,7 @@ class SIMS(SIMSReader, SIMSLut):
             to an already opened file. In fact, SIMS can read from anything that provides
             a read() function, although reading from a buffered object (with seek() and
             tell() support) is much more efficient.
-
-            In addition to header and data, a set of colour look-up tables (LUTs) are also
-            loaded. This requires matplotlib and loads the default backend. To prevent this
-            from happening, give load_luts=False. For more info, see help in SIMSLut class.
         """
-        if load_luts:
-            SIMSLut.__init__(self)
         SIMSReader.__init__(self, filename, file_in_archive=file_in_archive,
                             password=password)
         self.peek()
