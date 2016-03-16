@@ -191,7 +191,7 @@ def export_fits(data, filename, extend=False, **kwargs):
         FITS documentation); a 3D data cube will be saved as a
         list of 2D images.
 
-        Aditional arguments are sent to fits.writeto(), see
+        Additional arguments are sent to fits.writeto(), see
         astropy.io.fits for more info.
     """
     fits = None
