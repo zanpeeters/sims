@@ -48,12 +48,13 @@ except SystemError:
 if sys.version_info.major >= 3:
     unicode = str
 
-class SIMSBase(object):
-    """ Base SIMS object. """
+
+class SIMSReader(object):
+    """ Base class for reading a SIMS file. """
     def __init__(self, fileobject):
         """ This class object does not open or close files, and nothing will
-            be read by default. An empty header will be created and all
-            relevant methods for reading the header and data are available.
+            be read by default. An empty header and data array are created.
+            Provides all methods needed for reading a SIMS file.
         """
         self.fh = fileobject
         self.header = {}
@@ -1149,52 +1150,37 @@ class SIMSBase(object):
         hdr.seek(-1 * chunk, 1)
 
 
-class SIMSReader(SIMSBase, TransparentOpen):
-    """ Read a sims file. """
+class SIMS(SIMSReader, TransparentOpen):
+    """ Read a (nano)SIMS file and load the full header and image data. """
     def __init__(self, filename, file_in_archive=0, password=None):
-        """ Class to open SIMS files with transparent support for compression.
-            Compression type is decided by file extension. File is opened and the file handle
-            is passed to a SIMSBase object. Nothing is read.
+        """ Create a SIMS object that will hold all the header information and image data.
 
-            For archives with multiple files (zip, 7z, tar, compressed tar) set
-            file_in_archive to either the number of the file (0 is the first file)
-            or the name of the file to extract. By default, the first file in the archive
-            will be used.
+            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
 
-            For encrypted archives (zip, 7z) set password to access the data. For zip format,
-            password must be a byte-string.
+            Header information is stored as a nested Python dict in SIMS.header,
+            while data is stored in SIMS.data as a pandas.Panel4D object if
+            pandas is installed or a numpy ndarray otherwise.
+
+            This class can open Cameca (nano)SIMS files and transparently supports
+            compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and opening from
+            multifile archives (tar, compressed tar, zip, 7zip). Set file_in_archive
+            to the filename to extract, or the sequence number of the file in the
+            archive (0 is the first file). For encrypted archives (zip, 7z) set
+            password to access the data. For zip format, password must be a
+            byte-string.
+
+            It's also possible to supply a file object to an already opened file.
+            In fact, SIMS can read from anything that provides a read() function,
+            although reading from a buffered object (with seek() and tell()
+            support) is much more efficient.
 
             SIMSReader supports the 'with' statement.
         """
         TransparentOpen.__init__(self, filename, file_in_archive=file_in_archive,
                                  password=password)
         self.fh.seek(0)
-        SIMSBase.__init__(self, self.fh)
+        SIMSReader.__init__(self, self.fh)
 
-
-class SIMS(SIMSReader):
-    """ Read a (nano)SIMS file and load the full header and image data. """
-    def __init__(self, filename, load_luts=False, file_in_archive=0, password=None):
-        """ Create a SIMS object that will hold all the header information and image data.
-
-            Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
-
-            Header information is stored as a Python dict in s.header, while the data is
-            stored in s.data as a pandas.Panel4D object if pandas is installed or a Numpy
-            array otherwise. All methods from SIMSBase, SIMSReader, and SIMSLut are
-            inherited. The file is closed immediately after reading.
-
-            This class can open Cameca (nano)SIMS files and transparently supports
-            compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and opening from
-            multifile archives (tar, compressed tar, zip, 7zip). Set file_in_archive
-            to the filename to extract, or the sequence number of the file in the
-            archive (0 is the first file). It's also possible to supply a file object 
-            to an already opened file. In fact, SIMS can read from anything that provides
-            a read() function, although reading from a buffered object (with seek() and
-            tell() support) is much more efficient.
-        """
-        SIMSReader.__init__(self, filename, file_in_archive=file_in_archive,
-                            password=password)
         self.peek()
         self.read_header()
         self.read_data()
