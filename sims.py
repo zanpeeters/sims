@@ -110,6 +110,7 @@ class SIMSReader(object):
         polylist_pos = hdr.rfind(b'Poly_list\x00')
         champslist_pos = hdr.rfind(b'Champs_list\x00')
         offsetlist_pos = hdr.rfind(b'Offset_list\x00')
+        analparam_pos = hdr.rfind(b'Anal_param\x00')
         analparamnano_pos = hdr.rfind(b'Anal_param_nano\x00')
         analparamnanobis_pos = hdr.rfind(b'Anal_param_nano_bis\x00')
 
@@ -167,12 +168,53 @@ class SIMSReader(object):
         hdr.seek(948, 1)
         self.header['BFields'] = []
         for b in range(self.header['NanoSIMSHeader']['b fields']):
-            self.header['BFields'].append(self._bfield(hdr))
+            bf = self._bfield(hdr)
+            bf['counting frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['counting frame height'] * self.header['NanoSIMSHeader']['counting frame width']
+            bf['scanning frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['scanning frame height'] * self.header['NanoSIMSHeader']['scanning frame width']
+            bf['working frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['working frame height'] * self.header['NanoSIMSHeader']['working frame width']
+            self.header['BFields'].append(bf)
         # End nanosims_header/bfield based on Poly_list position
 
         # Analytical parameters
-        # Called AnalyticalParamNano AND AnalysisParamNano in OpenMIMS
-        # Here, split out Primary and Secondary beam
+
+        ## anal_param is not in OpenMIMS at all, represents file
+        ## Cameca NanoSIMS Data/raw_spec/cur_anal_par
+        ## However, only few useful things in this section, all of
+        ## which are also in other sections. Skip.
+        # if analparam_pos < 0:
+        #     msg = 'Anal_param not found in header, skipping.'
+        #     warnings.warn(msg)
+        # else:
+        #     hdr.seek(analparam_pos + 24)
+        #     print(analparam_pos)
+        #     d = {}
+        #     d['primary ion'], d['primary current begin'], \
+        #         d['primary current end'], d['raster'], \
+        #         d['X 00 always 1.0'], \
+        #         d['X 01 always 1'], d['X 02 always 0'], \
+        #         d['X 03 always 1'], d['X 04 always 0'], \
+        #         d['X 05 always 0'], d['X 06 (not0 always 0'], \
+        #         d['X 07 (not) always 0'], d['X 08 always 0'], \
+        #         d['pressure 1'], d['e0w'], d['X 09 always 35 or #'], \
+        #         d['X 10 junk'], \
+        #         d['X 11 always 1'], d['X 12 always 0'], \
+        #         d['X 13 always 1'], d['X 14 always 0'], \
+        #         d['X 15 always 0'], d['X 16 always 0'], \
+        #         d['X 17 always 0'], d['X 18 always 0'], \
+        #         d['X 19 always 0'], d['X 20 always 300'], \
+        #         d['X 21'], d['X 22'], d['X 23'], d['X 24'], \
+        #     d['pressure 2'], d['X 25 junk'] = \
+        #     unpack(self.header['byte order'] + '24s 4d 8i 48s d i 28s 14i 8s 176s', hdr.read(416))
+        #     
+        #     d['pressure 1'] = self._cleanup_string(d['pressure 1'])
+        #     d['pressure 2'] = self._cleanup_string(d['pressure 2'])
+        #     d['primary ion'] = self._cleanup_string(d['primary ion'])
+        # 
+        #     self.header['AnalParam'] = d
+
+        # Called AnalyticalParamNano AND AnalysisParamNano in OpenMIMS.
+        # Here, split out Primary and Secondary beam.
+        # Represents the file Cameca NanoSIMS Data/raw_spec/cur_anal_par_nano
         if analparamnano_pos < 0:
             msg = 'Anal_param_nano not found in header, '
             msg += 'don\'t know where PrimaryBeam section starts.'
