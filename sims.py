@@ -45,7 +45,7 @@ except ImportError:
 #     from info import *
 #     from utils import format_species
 #     from transparent import TransparentOpen
-# 
+#
 # if sys.version_info.major >= 3:
 #     unicode = str
 
@@ -210,11 +210,11 @@ class SIMSReader(object):
         #         d['X 21'], d['X 22'], d['X 23'], d['X 24'], \
         #     d['pressure 2'], d['X 25 junk'] = \
         #     unpack(self.header['byte order'] + '24s 4d 8i 48s d i 28s 14i 8s 176s', hdr.read(416))
-        #     
+        #
         #     d['pressure 1'] = self._cleanup_string(d['pressure 1'])
         #     d['pressure 2'] = self._cleanup_string(d['pressure 2'])
         #     d['primary ion'] = self._cleanup_string(d['primary ion'])
-        # 
+        #
         #     self.header['AnalParam'] = d
 
         # Called AnalyticalParamNano AND AnalysisParamNano in OpenMIMS.
@@ -350,14 +350,14 @@ class SIMSReader(object):
     def _main_header(self, hdr):
         """ Internal function; reads variable number of bytes; returns main header dict """
         d = {}
-        # Called readDefAnalysis in OpenMIMS (but skip first three, in peek)
+        # Called readDefAnalysis in OpenMIMS
         d['sample type'], d['data included'], d['sample x'], d['sample y'], \
             d['analysis type'], d['user name'], d['sample z'], date, time = \
             unpack(self.header['byte order'] + '4i 32s 16s i 12x 16s 16s', hdr.read(112))
 
         d['data included'] = bool(d['data included'])
         d['user name'] = self._cleanup_string(d['user name'])
-        d['analysis type'] = self._cleanup_string(d['analysis type'])
+        d['analysis type'] = self._cleanup_string(d['analysis type']).lower()
         date = self._cleanup_string(date)
         time = self._cleanup_string(time)
         d['date'] = self._cleanup_date(date + ' ' + time)
@@ -385,8 +385,7 @@ class SIMSReader(object):
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = self._hvcontrol(hdr)
-            # OpenMIMS has unused int after 'has autocal' (here in AutoCal). This is wrong.
-            # Don't know if it needs to go after HVControl or after SigRef.
+            # Don't know if this unused byte needs to go after HVControl or after SigRef.
             hdr.seek(4, 1)
 
         elif self.header['file type'] in (21, 26):
@@ -1235,8 +1234,8 @@ class SIMSReader(object):
             and time is colon-separated. Returns None if date is empty, contains 'N/A',
             or is not a string.
         """
-        if (not date 
-            or not isinstance(date, (str, unicode))
+        if (not date
+            or not isinstance(date, str)
             or 'N/A' in date):
             return None
 
@@ -1244,13 +1243,13 @@ class SIMSReader(object):
         day, month, year = date.split('.')
         hour, minute = time.split(':')
         year, month, day, hour, minute = [int(x) for x in (year, month, day, hour, minute)]
-        
+
         # For 2-digit years, 1969/2068 is the wrap-around (POSIX standard)
         if (69 <= year < 100):
             year += 1900
         elif (0 <= year < 69):
             year += 2000
-        
+
         return datetime.datetime(year, month, day, hour, minute)
 
     def _chomp(self, hdr, filler=(b'\x00\x00\x00\x00', b'\xCC\xCC\xCC\xCC'), chunk=4):
@@ -1290,7 +1289,7 @@ class SIMS(SIMSReader, TransparentOpen):
             although reading from a buffered object (with seek() and tell()
             support) is much more efficient.
 
-            SIMSReader supports the 'with' statement.
+            SIMS supports the 'with' statement.
         """
         TransparentOpen.__init__(self, filename, file_in_archive=file_in_archive,
                                  password=password)

@@ -46,7 +46,7 @@ def format_species(name, mhchem=False, mathrm=False):
 
         >>> format_species('12C2 2H', mathrm=True)
         '$\mathrm{{}^{12}C_{2}{}^{2}H}$'
-        
+
         >>> format_species('12C2 2H', mhchem=True)
         '\ce{{}^{12}C_{2}{}^{2}H}
     """
@@ -297,11 +297,11 @@ def export_fits(data, filename, extend=False, **kwargs):
 
 def align(data, reference_frame=0, upsample_factor=10, center=True, **kwargs):
     """ Perform image alignment on data.
-        
+
         usage: aligned_data, shifts = align(data)
-        
+
         Performs sub-pixel image translation registration (image alignment)
-        on the data. Each frame of each element is registered seperately. 
+        on the data. Each frame of each element is registered seperately.
         skimage.features.register_translation() is used for obtaining the
         shifts and scipy.ndimage.shift() is used to apply the shifts to the
         data. See the documentation of those functions for more information;
@@ -318,7 +318,7 @@ def align(data, reference_frame=0, upsample_factor=10, center=True, **kwargs):
 
         If center=True (the default), the shifts are centered to the median
         of the shifts to minimize blank edges.
-        
+
         Returns the aligned data and the shifts.
     """
     from skimage.feature import register_translation
@@ -392,7 +392,7 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         although this is more commonly done for FC detectors. These values
         are read from the .chk_is file. Set the background keyword to
         "baseline" to use these values.
-        
+
         Correction factors can be given either a single value to be used
         for all species in the data, or as a dict with label:value pairs
         to specify different values per species. This dictionary will
@@ -467,7 +467,7 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         msg += 'dictionary {species: value}, or None to use the yield value '
         msg += 'from the header (the default).'
         raise TypeError(msg)
-        
+
     # Override background values.
     if isinstance(background, (int, float)):
         for spc in EMs.keys():
@@ -485,7 +485,7 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
             msg += 'dictionary {species: value}, or the string "baseline" to use the '
             msg += 'values from the .chk_is file from the baseline measurement, or None '
             msg += 'to use the background value from the header (the default).'
-            raise TypeError(msg)            
+            raise TypeError(msg)
 
     for spc, dct in EMs.items():
         if not simsobj.header['MassTable'][spc]['background corrected']:
@@ -622,7 +622,7 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
         if not simsobj.header['MassTable'][spc]['background corrected']:
             simsobj.data[spc] -= dct['background']
             simsobj.header['MassTable'][spc]['background corrected'] = True
-            # 1e5 is the magic factor to go from "cps", 
+            # 1e5 is the magic factor to go from "cps",
             # which is aparently 0.01 mV/s, to V/s.
             simsobj.data[spc] *= ions_per_amp/(1e5 * dct['resistor'])
 
