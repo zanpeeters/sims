@@ -37,18 +37,23 @@ except ImportError:
     py7zlib = None
 
 # Local import py2 or 3
-try:
-    from .info import *
-    from .utils import format_species
-    from .transparent import TransparentOpen
-except SystemError:
-    from info import *
-    from utils import format_species
-    from transparent import TransparentOpen
+# try:
+#     from .info import *
+#     from .utils import format_species
+#     from .transparent import TransparentOpen
+# except SystemError:
+#     from info import *
+#     from utils import format_species
+#     from transparent import TransparentOpen
+# 
+# if sys.version_info.major >= 3:
+#     unicode = str
 
-if sys.version_info.major >= 3:
-    unicode = str
+from .info import *
+from .utils import format_species
+from .transparent import TransparentOpen
 
+__all__ = ['SIMSReader', 'SIMS']
 
 class SIMSReader(object):
     """ Base class for reading a SIMS file. """
