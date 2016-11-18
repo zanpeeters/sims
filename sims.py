@@ -189,7 +189,7 @@ class SIMSReader(object):
             self.header['SecondaryBeam'] = self._secondary_beam(hdr)
             self.header['Detectors'] = self._detectors1(hdr)
 
-            self.header['SecondaryBeam']['e0s'] = self.header['Detectors'].pop('e0s')
+            self.header['SecondaryBeam']['E0S'] = self.header['Detectors'].pop('E0S')
             self.header['SecondaryBeam']['pressure multicollection chamber'] = \
                 self.header['Detectors'].pop('pressure multicollection chamber')
 
@@ -527,8 +527,8 @@ class SIMSReader(object):
         d['E0SCenter'] = self._e0s_center(hdr)
 
         d['EnergyCenter']['wait time'], d['presputtering raster'], \
-            d['PeakCenter']['e0p offset'], d['E0SCenter']['steps'], \
-            d['baseline measurements'], d['baseline Pd offset'], \
+            d['PeakCenter']['E0P offset'], d['E0SCenter']['steps'], \
+            d['baseline measurement'], d['baseline offset'], \
             d['baseline frequency'] = \
             unpack(self.header['byte order'] + '5i d i', hdr.read(32))
         return d
@@ -586,8 +586,8 @@ class SIMSReader(object):
         # Called TabBFieldNano in OpenMIMS
         d = {}
         d['b field selected'], d['b field'], d['wait time'], \
-            d['time per pixel'], d['time per point'], d['computed'], \
-            d['e0w offset'], d['q'], d['lf4'], d['hex val'], d['frames'] = \
+            d['time per pixel'], d['time per step'], d['wait time computed'], \
+            d['E0W offset'], d['Q'], d['LF4'], d['hex val'], d['frames per bfield'] = \
             unpack(self.header['byte order'] + '4i d 6i', hdr.read(48))
 
         d['b field selected'] = bool(d['b field selected'])
@@ -637,7 +637,7 @@ class SIMSReader(object):
             d['hmr step'], d['hmr points'], d['hmr count time'], \
             d['used for baseline'], d['50% width'], d['peakcenter side'], \
             d['peakcenter count time'], d['used for sib center'], d['unit correction'], \
-            d['deflection'], d['used for energy center'], d['used for e0s center'] = \
+            d['deflection'], d['used for energy center'], d['used for E0S center'] = \
             unpack(self.header['byte order'] + '64s 2d 8i 2d 6i d 4i d 2i', hdr.read(192))
 
         # 16 extra bytes per trolley entry, not in OpenMIMS
@@ -650,7 +650,7 @@ class SIMSReader(object):
         d['used for baseline'] = bool(d['used for baseline'])
         d['used for sib center'] = bool(d['used for sib center'])
         d['used for energy center'] = bool(d['used for energy center'])
-        d['used for e0s center'] = bool(d['used for e0s center'])
+        d['used for E0S center'] = bool(d['used for E0S center'])
         d['real trolley'] = bool(d['real trolley'])
         d['peakcenter side'] = peakcenter_sides.get(d['peakcenter side'],
                                                          str(d['peakcenter side']))
@@ -676,32 +676,32 @@ class SIMSReader(object):
         # Called ApPrimaryNano in OpenMIMS
         d = {}
         start_position = hdr.tell()
-        d['source'], d['current start'], d['current end'], d['lduo'], d['l1'] =\
+        d['source'], d['current start'], d['current end'], d['Lduo'], d['L1'] =\
             unpack(self.header['byte order'] + '8s 4i', hdr.read(24))
 
         # Each widths list is 10 ints long
-        d['dduo'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['dduo widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
-        d['d0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['d0 widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
-        d['d1'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['d1 widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['Dduo'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['Dduo widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['D0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['D0 widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['D1'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['D1 widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
 
         # 4 bytes unused
         hdr.seek(4, 1)
-        d['raster'], d['oct45'], d['oct90'], d['e0p'], d['pressure analysis chamber'] = \
+        d['raster'], d['oct45'], d['oct90'], d['E0P'], d['pressure analysis chamber'] = \
             unpack(self.header['byte order'] + '4d 32s', hdr.read(64))
 
         d['source'] = self._cleanup_string(d['source'])
         d['pressure analysis chamber'] = self._cleanup_string(d['pressure analysis chamber'])
 
         if self.header['analysis version'] >= 3:
-            d['l0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            d['L0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
         if self.header['analysis version'] >= 4:
             d['hv cesium'], d['hv duo'] = unpack(self.header['byte order'] + '2i', hdr.read(8))
             # DCs not in OpenMIMS; only in certain release/version?
-            d['dcs'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-            d['dcs widths'] = list(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+            d['Dcs'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            d['Dcs widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
 
         # skip bytes until total read in this function is 552
         # OpenMIMS: size_Ap_primary_nano = 552
@@ -715,15 +715,14 @@ class SIMSReader(object):
         """ Internal function; reads 192 bytes; returns SecondaryBeam dict. """
         # Called ApSecondaryNano in OpenMIMS
         d = {}
-        # Many lists to unpack, use tmp tuple, reduce read and unpack calls.
         tmp = unpack(self.header['byte order'] + 'd 42i 2d', hdr.read(192))
-        d['e0w'], d['es'] = tmp[:2]
-        d['es widths'] = list(tmp[2:12])
-        d['es heights'] = list(tmp[12:22])
-        d['as'] = tmp[22]
-        d['as widths'] = list(tmp[23:33])
-        d['as heights'] = list(tmp[33:43])
-        d['ens'], d['ens width'] = tmp[43:]
+        d['E0W'], d['ES'] = tmp[:2]
+        d['ES widths'] = tmp[2:12]
+        d['ES heights'] = tuple(tmp[12:22])
+        d['AS'] = tmp[22]
+        d['AS widths'] = tuple(tmp[23:33])
+        d['AS heights'] = tuple(tmp[33:43])
+        d['EnS'], d['EnS width'] = tmp[43:]
         return d
 
     def _detectors1(self, hdr):
@@ -737,7 +736,7 @@ class SIMSReader(object):
 
         d['LD'] = {}
         d['LD']['exit slit width'], d['LD']['exit slit coeff a'], \
-            d['LD']['exit slit coeff b'], d['e0s'], \
+            d['LD']['exit slit coeff b'], d['E0S'], \
             d['pressure multicollection chamber'], \
             d['FCs']['fc background positive'], \
             d['FCs']['fc background negative'] = \
