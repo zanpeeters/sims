@@ -794,8 +794,8 @@ class SIMSReader(object):
         d['LD']['exit slit width'], d['LD']['exit slit coeff a'], \
             d['LD']['exit slit coeff b'], d['E0S'], \
             d['pressure multicollection chamber'], \
-            d['FCs']['fc background positive'], \
-            d['FCs']['fc background negative'] = \
+            d['FCs']['fc background setup positive'], \
+            d['FCs']['fc background setup negative'] = \
             unpack(self.header['byte order'] + '4d 32s 2i', hdr.read(72))
 
         d['pressure multicollection chamber'] = \
@@ -836,7 +836,7 @@ class SIMSReader(object):
         for n in range(1, 8):
             det = 'Detector {}'.format(n)
             d[det] = {}
-            d[det]['fc background positive'], d[det]['fc background negative'] = \
+            d[det]['fc background setup positive'], d[det]['fc background setup negative'] = \
                 unpack(self.header['byte order'] + '2i', hdr.read(8))
 
         for n in range(1, 8):
