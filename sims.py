@@ -383,35 +383,41 @@ class SIMSReader(object):
             n = 20
         else:
             n = 0
-        d['mass table ptr'] = list(unpack(self.header['byte order'] + n*'i', hdr.read(n*4)))
+        d['mass table ptr'] = tuple(unpack(self.header['byte order'] + n*'i', hdr.read(n*4)))
         d['mass table ptr'] = [n for n in d['mass table ptr'] if n != 0]
 
         if self.header['file type'] in (21, 22, 26, 41):
             hdr.seek(4, 1)  # 4 bytes unused
 
-        # Mass table, 1 info dict for each mass, indexed by number
-        d['MassTable'] = []
+        # Mass table, dict by species label.
+        d['MassTable'] = collections.OrderedDict()
         for m in range(d['masses']):
             mi = {}
-            # either 1st or 2nd int is type mass, other is unused, NOT IN SPEC!!
-            mi['type mass'], mi['type mass alt'], mi['mass'], \
+            mi['trolley index'], unknown, mi['mass'], \
                 mi['matrix or trace'], mi['detector'], mi['wait time'], \
-                mi['count time'], mi['offset'], mi['b field'] = \
+                mi['frame count time'], mi['offset'], mi['b field index'] = \
                 unpack(self.header['byte order'] + '2i d 2i 2d 2i', hdr.read(48))
 
-            mi['Species'] = self._species(hdr)
-            d['MassTable'].append(mi)
+            mi.update(self._species(hdr))
+
+            # Add correction controls, my own addition.
+            mi['background corrected'] = False
+            mi['deadtime corrected'] = False
+            mi['yield corrected'] = False
+
+            label = mi.pop('label')
+            # This is true for NS50L and file version 4108. Anywhere else different?
+            # Maybe confirm this with the Trolleys dict, there is an Esi trolley.
+            if mi['trolley index'] == 8:
+                label = 'SE'
+
+            d['MassTable'][label] = mi
 
         # Create a few convenient lists
-        d['mass list'] = []
-        d['label list'] = []
-        d['label list fmt'] = []
-        for m in d['MassTable']:
-            d['mass list'].append(m['mass'])
-            if not m['Species']['label']:
-                m['Species']['label'] = 'SE'
-            d['label list'].append(m['Species']['label'])
-            d['label list fmt'].append(format_species(m['Species']['label']))
+        d['label list'] = tuple(d['MassTable'].keys())
+        d['label list fmt'] = tuple(format_species(m) for m in d['label list'])
+        d['mass list'] = tuple(d['MassTable'][m]['mass'] for m in d['label list'])
+
         return d
 
     def _autocal(self, hdr):
