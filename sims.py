@@ -1301,6 +1301,22 @@ class SIMS(SIMSReader, TransparentOpen):
         self.read_data()
         self.close()
 
+        # Delete filehandles, so deepcopy can work.
+        del self.fh
+        del self.fh_archive
+
+    def copy(self):
+        """ Return a copy of the SIMS object.
+
+            Usage: s2 = s.copy()
+
+            The copy is always a deepcopy, meaning that all data and the full
+            header are copied, there are no references to the original. This
+            way the data of the copy can be altered without the data of the
+            original being changes as well.
+        """
+        return copy.deepcopy(self)
+
 
 #####################################################################################
 # Not implemented yet in read_header
