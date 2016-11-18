@@ -1072,10 +1072,20 @@ class SIMSReader(object):
         """ Internal function; reads 176 bytes, returns Isotopes dict. """
         # Not in OpenMIMS
         d = {}
-        d['blocks'], d['cycles per block'], d['rejection sigma'], d['A'], \
-            d['B'], d['C'] = \
-            unpack(self.header['byte order'] + '6i', hdr.read(24))
+        d['blocks'], d['frames per block'], d['rejection sigma'], ratios = \
+            unpack(self.header['byte order'] + '4i', hdr.read(16))
+        # ratios is the number of ratios to follow. Each ratio is a set of two ints.
+        # Each int is the index (0-index) of the species in the mass list. First int
+        # is numerator, second is denomenator of ratio.
+        r = unpack(self.header['byte order'] + '{}i'.format(2*ratios), hdr.read(2*4*ratios))
+        rtxt = tuple(self.header['label list'][n] for n in r)
+        rfmt = tuple(self.header['label list fmt'][n] for n in r)
+
+        d['ratios index'] = tuple((r[n], r[n+1]) for n in range(0, 2*ratios, 2))
+        d['ratios'] = tuple((rtxt[n], rtxt[n+1]) for n in range(0, 2*ratios, 2))
+        d['ratios fmt'] = tuple('{}\slash {}'.format(rfmt[n], rfmt[n+1]) for n in range(0, 2*ratios, 2))
         # rest is filler with \xFF
+        hdr.seek(176 - 16 - 2*4*ratios, 1)
         return d
 
     def _image_data(self):
