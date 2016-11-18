@@ -59,10 +59,8 @@ class SIMSReader(object):
         """
         self.fh = fileobject
         self.header = {}
-        if pd:
-            self.data = pd.Panel4D([[[[]]]], dtype='uint16')
-        else:
-            self.data = np.array([], dtype='uint16')
+        self.data = None
+        self._data_corr = None
 
     def peek(self):
         """ Peek into image file and determine basic file information.
@@ -255,18 +253,24 @@ class SIMSReader(object):
             stored in s.data. The image header must be read before data can be read.
 
             Image data are stored as a pandas Panel4D object with species on the
-            'labels' axis, cycles on the 'items' axis, width on the 'major' axis,
-            and height on the 'minor' axis. If pandas is not avaible, a Numpy array
-            with 4 dimensions is stored: mass, cycle, width, height.
+            'labels' axis, frames on the 'items' axis, rows (stage X-axis) on the
+            'major' axis, and columns (stage Y-axis) on the 'minor' axis. If pandas
+            is not avaible, a Numpy array with 4 dimensions is stored: species, frame,
+            row, column.
 
-            Isotope data are stored as a pandas DataFrame with the measurement time
-            as index and species labels as column headers. If pandas is not available,
-            as Numpy array is stored: s.data[0] is time, s.data[1:] is isotope data.
+            Isotope data are stored as a pandas DataFrame with frame number as index
+            and species labels as column headers. If pandas is not available, a numpy
+            array is stored. Data read from the .is file were corrected and converted
+            by the Cameca software during the measurement. These data are stored as
+            s._data_corr. If a .is_txt file is present, then the raw data are read
+            from the .is_txt file and stored as s.data in counts/s.
         """
         if not self.header['data included']:
             pass
         elif self.header['file type'] == 26:
             self._isotope_data()
+            if os.path.exists(self.filename + '_txt'):
+                self._isotope_txt_data()
         elif self.header['file type'] in (21, 22):
             # line scan types, no ImageHeader
             warnings.warn('No data read for line scan, fix')
@@ -1002,27 +1006,97 @@ class SIMSReader(object):
             self.data = pd.Panel4D(self.data, labels=self.header['label list'])
 
     def _isotope_data(self):
-        """ Internal function; read data for isotope type. """
+        """ Internal function; read data from .is file. """
+        # Data structure:
+        #   header
+        #   1 int (M): no. blocks (i.e. masses)
+        #   M blocks:
+        #     (each block)
+        #     1 int (N): no. points (i.e. frames)
+        #     N doubles: cumulative count time in s
+        #     N doubles: data
         self.fh.seek(self.header['header size'])
-        cols, rows = unpack(self.header['byte order'] + '2i', self.fh.read(8))
+        bo = self.header['byte order']
+        blocks = unpack(bo + 'i', self.fh.read(4))[0]
 
-        dt = np.dtype(self.header['byte order'] + 'd')
-        self.data = np.empty((2 * cols, rows), dtype=dt)
+        data = []
+        for block in range(blocks):
+            points = unpack(bo + 'i', self.fh.read(4))[0]
+            d = np.fromfile(self.fh, dtype=bo+'f8', count=2*points).reshape(2, points)
+            data.append(d[1])
 
-        # back up 4 to align with skipping in loop
-        self.fh.seek(-4, 1)
-        # Is cols number of columns per mass (always 2: time, counts)
-        # or number of masses per file (2 in test file)??
-        for c in range(0, 2*cols, 2):
-            self.fh.seek(4, 1)
-            self.data[c:c+2, :] = np.fromfile(self.fh, dtype=dt, count=2*rows).reshape(2, rows)
-
-        # remove every 'time' column except first
-        keepcols = [0] + list(range(1, 2*cols, 2))
-        self.data = self.data[keepcols]
         if pd:
-            self.data = pd.DataFrame(self.data[1:].T, index=self.data[0],
-                                     columns=self.header['label list'])
+            self._data_corr = pd.DataFrame(data, index=self.header['label list']).T
+            self._data_corr.index.name = 'frame'
+            self._data_corr.columns.name = 'counts/s'
+        else:
+            self._data_corr = np.vstack(data)
+
+    def _isotope_txt_data(self):
+        """ Internal function; read data from .is_txt file. """
+        txt = None
+        with open(self.filename + '_txt', mode='rt') as fh:
+            txt = fh.readlines()
+
+        data = []
+        frames = self.header['frames']
+        l = 0
+        while l < len(txt):
+            if txt[l].startswith('B ='):
+                Tc = txt[l].split('=')[-1].strip().strip(' ms')
+                Tc = float(Tc)/1000
+                d = np.loadtxt(txt[l+2 : l+2+frames])
+                data.append(d[:,1]/Tc)
+                l += 2 + frames
+            l += 1
+
+        if pd:
+            self.data = pd.DataFrame(data, index=self.header['label list']).T
+            self.data.index.name = 'frame'
+            self.data.columns.name = 'counts/s'
+        else:
+            self.data = np.vstack(data)
+
+    def _read_chk_is(self):
+        """ Internal function, reads .chk_is file, extracts background calibration. """
+        fname = os.path.splitext(self.filename)[0] + '.chk_is'
+        table = []
+        with open(fname, mode='rt') as fh:
+            for line in fh:
+                if line.startswith('FC Background before acq'):
+                    before = line.split(':')[1].strip().split()
+                elif line.startswith('FC Background after acq'):
+                    after = line.split(':')[1].strip().split()
+                elif line.startswith('|'):
+                    table.append(line)
+
+        # Parse analysis background
+        before = {before[n].replace('Det', 'Detector ').strip('='): float(before[n+1])
+                  for n in range(0, len(before), 2)}
+        after = {after[n].replace('Det', 'Detector ').strip('='): float(after[n+1])
+                 for n in range(0, len(after), 2)}
+        for det in before.keys():
+            self.header['Detectors'][det]['fc background before analysis'] = before[det]
+            self.header['Detectors'][det]['fc background after analysis'] = after[det]
+
+        # Parse baseline background if found
+        if table:
+            background = table[0].strip().strip('|').split('|')
+            background = [float(b.strip()) for b in background[1:]]
+            idx = table[2].strip().strip('|').split('|')
+            idx = [int(i.strip('Mas# ')) for i in idx[2:]]
+            species = [self.header['label list'][i-1] for i in idx]
+            baseline = dict(zip(species, background))
+
+            for spc, mt in self.header['MassTable'].items():
+                if spc in baseline.keys():
+                    bfi = mt['b field index']
+                    tri = mt['trolley index']
+                    tr = self.header['BFields'][bfi]['Trolleys'][tri]
+                    if tr['detector'] == 'EM':
+                        tr['em background baseline'] = baseline[spc]
+                    elif tr['detector'] == 'FC':
+                        tr['fc background baseline'] = baseline[spc]
 
     def _cleanup_string(self, bytes):
         """ Internal function; cuts off bytes at first null-byte,
