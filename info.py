@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Info and substitution dicts for sims module. """
-from __future__ import print_function, division
+# from __future__ import print_function, division
 
 stage_scan_types = {
     0: 'stage scan',

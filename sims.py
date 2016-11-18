@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Python module to read Cameca (nano)SIMS data files. """
-from __future__ import print_function, division
+from __future__ import print_function, division, absolute_import
 
 import io
 import sys
