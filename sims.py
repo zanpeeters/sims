@@ -628,44 +628,56 @@ class SIMSReader(object):
         # 8 bytes unused
         hdr.seek(8, 1)
 
-        # Trolleys 0-5
-        d['Trolleys'] = [0, 0, 0, 0, 0, 0]
-        for t in range(6):
-            d['Trolleys'][t] = self._trolley(hdr)
+        # There appear to be 12 trolleys stored.
+        # The following labels are true for NS50L and file version 4108.
+        # Anywhere else different? What are labels for missing?
+        # idx  trolley  idx in header (if all enabled)
+        # 0    FCs?     -2
+        # 1    T1        0
+        # 2    T2        1
+        # 3    T3        2
+        # 4    T4        3
+        # 5    T5        4
+        # 6    ?        -3
+        # 7    ?        -2
+        # 8    SE       -1
+        # 9    ?        -3
+        # 10   T6        5
+        # 11   T7        6
+        trolleys = []
+        for t in range(12):
+            trolleys.append(self._trolley(hdr))
 
-        ### SKIPPING USEFUL INFO
+        for t in range(12):
+            trolleys[t].update(self._phd(hdr))
 
-        # Not sure which version skips how much
-        # this works for file v11/nsheader v8 and file v4108/nsheader v9
-        if self.header['file version'] < 4108:
-            hdr.seek(768, 1)
-        else:
-            hdr.seek(832, 1)
+        # Add detector index that links trolley to detector and
+        # trolley names. Don't know how to do this for EMBig, LD etc.
+        for t in range(12):
+            if t in (1,2,3,4,5):
+                    trolleys[t]['trolley label'] = 'Trolley {}'.format(t)
+                    trolleys[t]['detector label'] = 'Detector {}'.format(t)
+            elif t in (10,11):
+                    trolleys[t]['trolley label'] = 'Trolley {}'.format(t - 4)
+                    trolleys[t]['detector label'] = 'Detector {}'.format(t - 4)
+            elif t == 8:
+                trolleys[t]['trolley label'] = 'SE'
+                trolleys[t]['detector label'] = 'SE'
+            else:
+                trolleys[t]['trolley label'] = 'non-trolley {}'.format(t)
+                trolleys[t]['detector label'] = ''
 
-        # Trolleys 6 & 7
-        d['Trolleys'].append(self._trolley(hdr))
-        d['Trolleys'].append(self._trolley(hdr))
-
-        # PHD 0-5
-        for t in range(6):
-            d['Trolleys'][t].update(self._phd(hdr))
-
-        ### SKIPPING USEFUL INFO
-        hdr.seek(96, 1)
-
-        # PHD 6 & 7
-        d['Trolleys'][6].update(self._phd(hdr))
-        d['Trolleys'][7].update(self._phd(hdr))
-
+        d['Trolleys'] = trolleys
         return d
 
     def _trolley(self, hdr):
         """ Internal function; reads 192 or 208 bytes; returns Trolley dict """
         # Called TabTrolleyNano in OpenMIMS
         d = {}
+        # exit slit seems to be incorrect
         d['label'], d['mass'], d['radius'], d['deflection plate 1'], \
             d['deflection plate 2'], d['detector'], d['exit slit'], d['real trolley'], \
-            d['trolley index'], d['peakcenter index'], d['peakcenter follow'], d['focus'], \
+            d['cameca trolley index'], d['peakcenter index'], d['peakcenter follow'], d['focus'], \
             d['hmr start'], d['start dac plate 1'], d['start dac plate 2'], \
             d['hmr step'], d['hmr points'], d['hmr count time'], \
             d['used for baseline'], d['50% width'], d['peakcenter side'], \
@@ -690,6 +702,11 @@ class SIMSReader(object):
         d['detector'] = detectors.get(d['detector'], str(d['detector']))
         d['hmr count time'] /= 100
         d['peakcenter count time'] /= 100
+
+        # If trolley is real and index is >= 0, then it is enabled. If it is real and
+        # index is -1, it is not enabled. If index is < -1, it should also be not real.
+        d['trolley enabled'] = bool(d['real trolley'] and d['cameca trolley index'] >= 0)
+
         return d
 
     def _phd(self, hdr):
@@ -702,6 +719,12 @@ class SIMSReader(object):
 
         d['used for phd scan'] = bool(d['used for phd scan'])
         d['phd count time'] /= 100
+
+        # 24 extra bytes per phd entry, not in OpenMIMS
+        # Only certain versions?
+        if self.header['file version'] >= 4108:
+            hdr.seek(24, 1)
+
         return d
 
     def _primary_beam(self, hdr):
