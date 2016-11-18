@@ -233,7 +233,7 @@ class SIMSReader(object):
                     self.header['Detectors'].update(self._detectors2(hdr))
                     exsl = self.header['Detectors'].pop('exit slit xl')
                     for n in range(7):
-                        det = 'Detector{}'.format(n+1)
+                        det = 'Detector {}'.format(n+1)
                         self.header['Detectors'][det]['exit slit widths'][2] = exsl[5*n:5*(n+1)]
                         self.header['Detectors'][det]['exit slit heights'][2] = \
                             exsl[5*(n+1):5*(n+2)]
@@ -758,7 +758,7 @@ class SIMSReader(object):
         d['FCs'] = self._exit_slits(hdr)
 
         for n in range(1, 6):
-            det = 'Detector{}'.format(n)
+            det = 'Detector {}'.format(n)
             d[det] = self._exit_slits(hdr)
 
         d['LD'] = {}
@@ -773,7 +773,7 @@ class SIMSReader(object):
             self._cleanup_string(d['pressure multicollection chamber'])
 
         for n in range(1, 6):
-            det = 'Detector{}'.format(n)
+            det = 'Detector {}'.format(n)
             d[det].update(self._electron_multiplier(hdr))
 
         d['LD'].update(self._electron_multiplier(hdr))
@@ -791,10 +791,10 @@ class SIMSReader(object):
         # presets separate, last part in _detectors3
         d = {}
         if self.header['analysis version'] >= 5:
-            d['Detector6'] = self._exit_slits(hdr)
-            d['Detector6'].update(self._electron_multiplier(hdr))
-            d['Detector7'] = self._exit_slits(hdr)
-            d['Detector7'].update(self._electron_multiplier(hdr))
+            d['Detector 6'] = self._exit_slits(hdr)
+            d['Detector 6'].update(self._electron_multiplier(hdr))
+            d['Detector 7'] = self._exit_slits(hdr)
+            d['Detector 7'].update(self._electron_multiplier(hdr))
             d['exit slit xl'] = list(unpack(self.header['byte order'] + '70i', hdr.read(280)))
         return d
 
@@ -805,13 +805,13 @@ class SIMSReader(object):
         d['TIC'] = self._electron_multiplier(hdr)
 
         for n in range(1, 8):
-            det = 'Detector{}'.format(n)
+            det = 'Detector {}'.format(n)
             d[det] = {}
             d[det]['fc background positive'], d[det]['fc background negative'] = \
                 unpack(self.header['byte order'] + '2i', hdr.read(8))
 
         for n in range(1, 8):
-            det = 'Detector{}'.format(n)
+            det = 'Detector {}'.format(n)
             det_type = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
             d[det]['detector'] = detectors.get(det_type, str(det_type))
         return d
