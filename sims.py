@@ -244,6 +244,10 @@ class SIMSReader(object):
             hdr.seek(-84, 2)
             self.header['Image'] = self._image_hdr(hdr)
 
+        # Done reading header. Check for and read external files for extra info.
+        if os.path.exists(os.path.splitext(self.filename)[0] + '.chk_is'):
+            self._read_chk_is()
+
     def read_data(self):
         """ Read the image data.
 
