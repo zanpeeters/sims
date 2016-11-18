@@ -1120,6 +1120,10 @@ class SIMSReader(object):
 
         if pd:
             self.data = pd.Panel4D(self.data, labels=self.header['label list'])
+            self.data.labels.name = 'species'
+            self.data.items.name = 'frame'
+            self.data.major_axis.name = 'y'
+            self.data.minor_axis.name = 'x'
 
     def _isotope_data(self):
         """ Internal function; read data from .is file. """
