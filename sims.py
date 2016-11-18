@@ -306,7 +306,7 @@ class SIMSReader(object):
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = {}
-            d['HVControl']['has hvcontrol'] = False
+            d['HVControl']['hvcontrol enabled'] = False
 
         elif self.header['file type'] in (22, 41):
             # Called MaskSampleStageImage/readMaskIss in OpenMIMS
@@ -399,12 +399,13 @@ class SIMSReader(object):
     def _autocal(self, hdr):
         """ Internal function; reads 76 bytes; returns AutoCal dict """
         # Called AutoCal in OpenMIMS source
-        # OpenMIMS says extra unused byte after has autocal for stage scan image; not true
+        # OpenMIMS says extra unused byte after autocal enabled
+        # for stage scan image; not true
         d = {}
-        d['has autocal'], d['label'], d['begin'], d['duration'] = \
+        d['autocal enabled'], d['label'], d['begin'], d['duration'] = \
             unpack(self.header['byte order'] + 'i 64s 2i', hdr.read(76))
 
-        d['has autocal'] = bool(d['has autocal'])
+        d['autocal enabled'] = bool(d['autocal enabled'])
         d['label'] = self._cleanup_string(d['label'])
         return d
 
@@ -412,11 +413,11 @@ class SIMSReader(object):
         """ Internal function; reads 112 bytes, returns HVControl dict. """
         # Called readHvControl by OpenMIMS
         d = {}
-        d['has hvcontrol'], d['label'], d['begin'], d['duration'], d['limit low'], \
+        d['hvcontrol enabled'], d['label'], d['begin'], d['duration'], d['limit low'], \
             d['limit high'], d['step'], d['bandpass width'], d['count time'] = \
             unpack(self.header['byte order'] + 'i 64s 2i 3d i d', hdr.read(112))
 
-        d['has hvcontrol'] = bool(d['has hvcontrol'])
+        d['hvcontrol enabled'] = bool(d['hvcontrol enabled'])
         d['label'] = self._cleanup_string(d['label'])
         return d
 
@@ -424,7 +425,7 @@ class SIMSReader(object):
         """ Internal function; reads 160 bytes; returns SigRef dict """
         # Called SigRef in OpenMIMS
         d = {}
-        d['has sigref'] = bool(unpack(self.header['byte order'] + 'i', hdr.read(4))[0])
+        d['sigref enabled'] = bool(unpack(self.header['byte order'] + 'i', hdr.read(4))[0])
         d['Species'] = self._species(hdr)
         d['detector'], d['offset'], d['quantity'] = \
             unpack(self.header['byte order'] + '3i', hdr.read(12))
@@ -490,11 +491,11 @@ class SIMSReader(object):
             d['scanning frame y'], d['scanning frame height'], \
             d['nx lowb'], d['nx highb'], d['ny lowb'], d['ny highb'], \
             d['detector type'], d['electron scan'], d['scanning mode'], \
-            d['blanking comptage'], d['PeakCenter']['has peakcenter'], \
+            d['beam blanking'], d['PeakCenter']['peakcenter enabled'], \
             d['PeakCenter']['start'], d['PeakCenter']['frequency'], d['b fields'] = \
             unpack(self.header['byte order'] + '25i', hdr.read(100))
 
-        d['PeakCenter']['has peakcenter'] = bool(d['PeakCenter']['has peakcenter'])
+        d['PeakCenter']['peakcenter enabled'] = bool(d['PeakCenter']['peakcenter enabled'])
         d['regulation mode'] = bool(d['regulation mode'])
         d['grain mode'] = bool(d['grain mode'])
         d['semigraphic mode'] = bool(d['semigraphic mode'])
@@ -520,8 +521,8 @@ class SIMSReader(object):
 
         d['SibCenterHor']['b field index'] = b_field_index
         d['SibCenterVert']['b field index'] = b_field_index
-        d['SibCenterHor']['has sib center'] = has_sib_center
-        d['SibCenterVert']['has sib center'] = has_sib_center
+        d['SibCenterHor']['sib center enabled'] = has_sib_center
+        d['SibCenterVert']['sib center enabled'] = has_sib_center
 
         d['EnergyCenter'] = self._energy_center(hdr)
         d['E0SCenter'] = self._e0s_center(hdr)
@@ -549,14 +550,14 @@ class SIMSReader(object):
     def _energy_center(self, hdr):
         """ Internal function; reads 52 bytes; returns EnergyCenter dict """
         # Called EnergyNano in OpenMIMS
-        # Added b field index, has energy center, and frequency from MaskNano
+        # Added b field index, energy center enabled, and frequency from MaskNano
         d = {}
         d['detector'], d['start'], d['step size'], d['center'], \
             d['delta'], d['count time'], d['b field index'], \
-            d['has energy center'], d['frequency'] = \
+            d['energy center enabled'], d['frequency'] = \
             unpack(self.header['byte order'] + '3i 4x 2d i 4x 3i', hdr.read(52))
 
-        d['has energy center'] = bool(d['has energy center'])
+        d['energy center enabled'] = bool(d['energy center enabled'])
         d['count time'] /= 100  # 10 ms increments to seconds
         if d['detector'] < 0:
             d['detector'] = None
@@ -567,13 +568,13 @@ class SIMSReader(object):
     def _e0s_center(self, hdr):
         """ Internal function; reads 40 bytes; returns E0sCenter dict """
         # Called E0SNano in OpenMIMS
-        # b field index and has e0s center added to sub dict from main nano header
+        # b field index and e0s center enabled added to sub dict from main nano header
         d = {}
         d['b field index'], d['detector'], d['start'], d['step size'], \
-            d['count time'], d['center'], d['80% width'], d['has e0s center'] = \
+            d['count time'], d['center'], d['80% width'], d['E0S center enabled'] = \
             unpack(self.header['byte order'] + '5i 2d i', hdr.read(40))
 
-        d['has e0s center'] = bool(d['has e0s center'])
+        d['E0S center enabled'] = bool(d['E0S center enabled'])
         d['count time'] /= 100  # 10 ms increments to seconds
         if d['detector'] < 0:
             d['detector'] = None
@@ -585,12 +586,15 @@ class SIMSReader(object):
         """ Internal function; reads 2840 bytes; returns BField dict """
         # Called TabBFieldNano in OpenMIMS
         d = {}
-        d['b field selected'], d['b field'], d['wait time'], \
+        d['b field enabled'], d['b field'], d['wait time'], \
             d['time per pixel'], d['time per step'], d['wait time computed'], \
             d['E0W offset'], d['Q'], d['LF4'], d['hex val'], d['frames per bfield'] = \
             unpack(self.header['byte order'] + '4i d 6i', hdr.read(48))
 
-        d['b field selected'] = bool(d['b field selected'])
+        d['b field enabled'] = bool(d['b field enabled'])
+        d['wait time computed'] = bool(d['wait time computed'])
+        d['wait time'] = d['wait time']/1e6
+        d['time per pixel'] = d['time per pixel']/1e6
 
         # 8 bytes unused
         hdr.seek(8, 1)
@@ -893,10 +897,10 @@ class SIMSReader(object):
         d = {}
         start_position = hdr.tell()
         d['isf filename'], d['preset name'], d['calibration date'], \
-            d['selected'], d['parameters'] = \
+            d['enabled'], d['parameters'] = \
             unpack(self.header['byte order'] + '256s 224s 32s 2i', hdr.read(520))
 
-        d['selected'] = bool(d['selected'])
+        d['enabled'] = bool(d['enabled'])
         d['isf filename'] = self._cleanup_string(d['isf filename'])
         d['preset name'] = self._cleanup_string(d['preset name'])
         d['calibration date'] = self._cleanup_string(d['calibration date'])
