@@ -317,7 +317,7 @@ class SIMSReader(object):
 
         if self.header['file type'] in (27, 29, 39):
             # Called MaskImage/readMaskIm in OpenMIMS
-            d['original filename'], d['analysis duration'], d['cycles'], d['scan type'], \
+            d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
                 d['magnification'], d['size type'], d['size detector'], \
                 d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
                 unpack(self.header['byte order'] + '16s 3i 3h 2x 3i', hdr.read(48))
@@ -330,7 +330,7 @@ class SIMSReader(object):
             # Called MaskSampleStageImage/readMaskIss in OpenMIMS
             d['original filename'], d['analysis duration'], d['scan type'], \
                 d['steps'], d['steps x'], d['steps y'], d['step size'], \
-                d['step waittime'], d['cycles'], d['beam blanking'], \
+                d['step waittime'], d['frames'], d['beam blanking'], \
                 d['presputtering'], d['presputtering duration'] = \
                 unpack(self.header['byte order'] + '16s 6i d 4i', hdr.read(64))
 
@@ -345,7 +345,7 @@ class SIMSReader(object):
         elif self.header['file type'] in (21, 26):
             # Not in OpenMIMS
             # this bit same as image, 1 extra unused/unknown
-            d['original filename'], d['analysis duration'], d['cycles'], d['scan type'], \
+            d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
                 d['magnification'], d['size type'], d['size detector'], \
                 d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
                 unpack(self.header['byte order'] + '16s 4x 3i 3h 2x 3i', hdr.read(52))
