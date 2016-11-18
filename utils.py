@@ -14,19 +14,19 @@ def format_species(name, mhchem=False, mathrm=False):
 
         Usage: formatted_name = format_species(name, mhchem=False)
 
-        Takes a string which represent of an atomic or molecular species
+        Takes a string which represents an atomic or molecular species
         and returns a string with LaTeX-style sub- and superscripts for input
         into Matplotlib. Multiple atoms in the input string are expected to be
         space-separated within a molecule, as in Cameca formatting. Irregularly
         formatted strings are silently skipped.
-        
-        If mhchem=True, the \ce command from the mhchem package is used to
+
+        If mhchem=True, then the \ce command from the mhchem package is used to
         format species names. This gives much better results, but requires LaTeX
         and mhchem to be installed. For this to typeset properly in matplotlib,
-        set 'text.usetex' to True and include '\\usepackage[version=3]{mhchem}'
-        in 'text.latex.preamble' (or 'pgf.preamble' when exporting as pgf) in
+        set 'text.usetex' to True and include '\\usepackage{mhchem}' in
+        'text.latex.preamble' (or 'pgf.preamble' when exporting as pgf) in
         rcParams or matplotlibrc.
-        
+
         If mathrm=True, a \mathrm command is inserted, to typeset upright
         letters. Useful when the full LaTeX engine is used (text.usetex: True in
         matplotlibrc); LaTeX typesets math mode text in italic by default. This
@@ -34,37 +34,59 @@ def format_species(name, mhchem=False, mathrm=False):
 
         Example:
         >>> format_species('12C2 2H')
-        '${}^{12}C_{2}{}^{2}H_{}$'
+        '${}^{12}C_{2}{}^{2}H$'
 
         >>> format_species('12C2 2H', mathrm=True)
-        '$\mathrm{{}^{12}C_{2}{}^{2}H_{}}$'
+        '$\mathrm{{}^{12}C_{2}{}^{2}H}$'
         
         >>> format_species('12C2 2H', mhchem=True)
-        '\ce{^{12}C}
+        '\ce{{}^{12}C_{2}{}^{2}H}
     """
     # {} is format subst. {{}} is literal {} after expansion.
     # {{{}}} is a subst inside a literal {} after expansion.
     # First {{}} (expands to {}) aligns superscript with following
     # character, not previous.
     # The string 1A2 expands to: '{}^{1}A_{2}'
-    template = '{{}}^{{{mass}}}{elem}_{{{stoich}}}'
+    mass_tmpl = '{{}}^{{{mass}}}'
+    elem_tmpl = '{elem}'
+    stoich_tmpl = '_{{{stoich}}}'
+    charge_tmpl = '^{{{charge}}}'
 
     if mhchem:
         begin = '\ce{'
         end = '}'
-        template = '^{{{mass}}}{elem}{stoich}'
     elif mathrm:
         begin = '$\mathrm{'
         end = '}$'
     else:
         begin = end = '$'
 
-    atoms = name.split()
     body = ''
-    for a in atoms:
-        parts = re.split('([a-zA-Z]+)', a)
-        if len(parts) != 3: return ''
-        body += template.format(mass=parts[0], elem=parts[1], stoich=parts[2])
+    for atom in name.split():
+        if '+' in atom or '-' in atom:
+            body += charge_tmpl.format(charge=atom)
+            continue
+
+        parts = re.split('([a-zA-Z]+)', atom)
+        if not len(parts) == 3:
+            continue
+
+        if not parts[1]:
+            continue
+        else:
+            elem = elem_tmpl.format(elem=parts[1])
+
+        if parts[0]:
+            mass = mass_tmpl.format(mass=parts[0])
+        else:
+            mass = ''
+
+        if parts[2]:
+            stoich = stoich_tmpl.format(stoich=parts[2])
+        else:
+            stoich = ''
+
+        body += mass + elem + stoich
 
     return begin + body + end
 
