@@ -3,7 +3,10 @@
 """ Tools and utilities for the sims module. """
 from __future__ import print_function, division
 import re
+import os
+import json
 import sims
+import warnings
 import numpy as np
 
 def format_species(name, mhchem=False, mathrm=False):
