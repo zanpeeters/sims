@@ -193,6 +193,11 @@ class SIMSReader(object):
             self.header['SecondaryBeam']['pressure multicollection chamber'] = \
                 self.header['Detectors'].pop('pressure multicollection chamber')
 
+            # Add overall mode of machine, based on E0W
+            if self.header['SecondaryBeam']['E0W'] < 0:
+                self.header['polarity'] = '+'
+            else:
+                self.header['polarity'] = '-'
 
             # Combine pixel size from NanoSIMSHeader and raster from PrimaryBeam
             self.header['NanoSIMSHeader']['working frame raster'] = \
