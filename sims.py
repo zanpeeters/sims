@@ -193,6 +193,19 @@ class SIMSReader(object):
             self.header['SecondaryBeam']['pressure multicollection chamber'] = \
                 self.header['Detectors'].pop('pressure multicollection chamber')
 
+
+            # Combine pixel size from NanoSIMSHeader and raster from PrimaryBeam
+            self.header['NanoSIMSHeader']['working frame raster'] = \
+                self.header['PrimaryBeam']['raster']
+            self.header['NanoSIMSHeader']['scanning frame raster'] = \
+                self.header['NanoSIMSHeader']['working frame raster'] * \
+                self.header['NanoSIMSHeader']['scanning frame width'] / \
+                self.header['NanoSIMSHeader']['working frame width']
+            self.header['NanoSIMSHeader']['counting frame raster'] = \
+                self.header['NanoSIMSHeader']['working frame raster'] * \
+                self.header['NanoSIMSHeader']['counting frame width'] / \
+                self.header['NanoSIMSHeader']['working frame width']
+
             # Header for non-nano SIMS
             magic = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
             if magic != 2306:
@@ -485,11 +498,12 @@ class SIMSReader(object):
         d = {}
         d['PeakCenter'] = {}
         d['nanosimsheader version'], d['regulation mode'], d['mode'], \
-            d['grain mode'], d['semigraphic mode'], d['delta x'], \
-            d['delta y'], d['working frame width'], d['working frame height'], \
+            d['grain mode'], d['semigraphic mode'], d['stage delta x'], \
+            d['stage delta y'], d['working frame width'], d['working frame height'], \
             d['scanning frame x'], d['scanning frame width'], \
             d['scanning frame y'], d['scanning frame height'], \
-            d['nx lowb'], d['nx highb'], d['ny lowb'], d['ny highb'], \
+            d['counting frame x start'], d['counting frame x end'], \
+            d['counting frame y start'], d['counting frame y end'], \
             d['detector type'], d['electron scan'], d['scanning mode'], \
             d['beam blanking'], d['PeakCenter']['peakcenter enabled'], \
             d['PeakCenter']['start'], d['PeakCenter']['frequency'], d['b fields'] = \
@@ -500,6 +514,10 @@ class SIMSReader(object):
         d['grain mode'] = bool(d['grain mode'])
         d['semigraphic mode'] = bool(d['semigraphic mode'])
         d['scanning mode'] = bool(d['scanning mode'])
+
+        # Set a few extra variables.
+        d['counting frame width'] = d['counting frame x end'] - d['counting frame x start'] + 1
+        d['counting frame height'] = d['counting frame y end'] - d['counting frame y start'] + 1
 
         # Found in at least one version (file v11, nsHeader v8) a repeat of Poly_list and this
         # first part of nanoSIMSHeader. Total of repeat adds up to 288.
