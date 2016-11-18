@@ -9,7 +9,8 @@ import os
 import re
 import datetime
 import warnings
-import json
+import collections
+import copy
 import gzip
 import bz2
 import zipfile

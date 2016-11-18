@@ -260,3 +260,71 @@ def export_fits(data, filename, extend=False, **kwargs):
     else:
         hdu = fits.PrimaryHDU(data)
         hdu.writeto(filename, **kwargs)
+class JSONDateTimeEncoder(json.JSONEncoder):
+    """ Converts datetime objects to json format. """
+    def default(self, obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        else:
+            return json.JSONEncoder.default(self, obj)
+
+
+def export_header(simsobj, filename=""):
+    """ Export header to a JSON text file.
+
+        Usage: export_header(simsobj, filename="alt_filename.txt")
+
+        The entire header will be pretty-printed to a text file,
+        serialized as JSON in UTF-8 encoding. Uses sims_filename.im.txt
+        by default.
+    """
+    if not filename:
+        filename = simsobj.filename + '.txt'
+
+    # io is for python2 compatibility
+    with io.open(filename, mode='wt', encoding='utf-8') as fp:
+        print(json.dumps(self.header, sort_keys=True,
+                         indent=2, ensure_ascii=False,
+                         separators=(',', ': '), cls=JSONDateTimeEncoder),
+              file=fp)
+
+def export_matlab(simsobj, filename="", prefix='m', **kwargs):
+    """ Export data to MatLab file.
+
+        Usage: export_matlab(simsobj, filename="alt_filename.mat")
+
+        Saves data to filename.im.mat, or alt_filename.mat if supplied. All
+        other keyword arguments are passed on to scipy.io.savemat().
+
+        By default the MatLab file will be saved in MatLab 5 format (the default
+        in MatLab 5 - 7.2), with long_field_names=True (compatible with
+        MatLab 7.6+) and with do_compression=True.
+
+        The data is stored as a dictionary with the labels as keywords and
+        3D numpy arrays as values. Each label is taken from the nanoSIMS label,
+        prefixed with 'prefix' (default 'm'), because MatLab doesn't allow
+        variable names starting with a number.
+    """
+    try:
+        import scipy.io
+    except ImportError:
+        msg = "Scipy not found on your system, MatLab export not available."
+        warnings.warn(msg)
+        return
+
+    if not filename:
+        filename = simsobj.filename
+    if 'do_compression' not in kwargs.keys():
+        kwargs['do_compression'] = True
+    if 'long_field_names' not in kwargs.keys():
+        kwargs['long_field_names'] = True
+
+    export = {}
+    if pd:
+        for l in simsobj.data.labels:
+            export[prefix + l] = np.asarray(simsobj.data[l])
+    else:
+        for n, l in enumerate(simsobj.header['label list']):
+            export[prefix + l] = simsobj.data[n]
+
+    scipy.io.savemat(filename, export, **kwargs)
