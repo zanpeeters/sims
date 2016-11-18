@@ -935,15 +935,15 @@ class SIMSReader(object):
         d['simsheader version'], d['original filename'], d['matrix'], \
             d['sigref auto'], d['sigref points'], d['sigref delta'], \
             d['sigref scan time'], d['sigref measure time'], \
-            d['sigref beam time'], d['has eps centering'], d['has eps'], \
-            d['central energy'], d['b field'] = \
+            d['sigref beam on time'], d['eps centering enabled'], d['eps enabled'], \
+            d['eps central energy'], d['eps b field'] = \
             unpack(self.header['byte order'] + 'i 256s 256s 10i', hdr.read(556))
 
-        d['CentralSpecies'] = self._species(hdr)
-        d['ReferenceSpecies'] = self._species(hdr)
+        d['EPSCentralSpecies'] = self._species(hdr)
+        d['EPSReferenceSpecies'] = self._species(hdr)
 
         # Don't know how long method name is, runs into null-padded zone.
-        d['ref mass tube hv'], d['ref mass tube hv max var'], \
+        d['eps ref mass tube hv'], d['eps ref mass tube hv max var'], \
             d['sample rotation'], d['sample rotation speed'], \
             d['sample rotation synced'], d['sample name'], \
             d['user name'], d['method name'] = \
@@ -956,8 +956,8 @@ class SIMSReader(object):
         d['method name'] = self._cleanup_string(d['method name'])
 
         d['sigref auto'] = bool(d['sigref auto'])
-        d['has eps centering'] = bool(d['has eps centering'])
-        d['has eps'] = bool(d['has eps'])
+        d['eps centering enabled'] = bool(d['eps centering enabled'])
+        d['eps enabled'] = bool(d['eps enabled'])
         d['sample rotation'] = bool(d['sample rotation'])
         d['sample rotation synced'] = bool(d['sample rotation synced'])
         d['sigref scan time'] /= 10  # 0.1 sec increments
