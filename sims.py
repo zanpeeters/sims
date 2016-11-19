@@ -66,6 +66,7 @@ class SIMSReader(object):
         self.header = {}
         self.data = None
         self._data_corr = None
+        self._bo = ''
 
     def peek(self):
         """ Peek into image file and determine basic file information.
@@ -81,14 +82,16 @@ class SIMSReader(object):
         # 256 is an arbitrarily chosen limit, file types are in the 10s.
         if unpack('<i', snip[4:8])[0] < 256:
             self.header['byte order'] = '<'
+            self._bo = '<'
         elif unpack('>i', snip[4:8])[0] < 256:
             self.header['byte order'] = '>'
+            self._bo = '>'
         else:
             raise TypeError("Cannot determine file endianess.")
 
         self.header['file version'], self.header['file type'], \
             self.header['header size'] = \
-            unpack(self.header['byte order'] + '3i', snip)
+            unpack(self._bo + '3i', snip)
 
         if self.header['file type'] not in supported_file_types:
             msg = "File of type {} is not supported at the moment."
@@ -209,7 +212,7 @@ class SIMSReader(object):
         #         d['X 19 always 0'], d['X 20 always 300'], \
         #         d['X 21'], d['X 22'], d['X 23'], d['X 24'], \
         #     d['pressure 2'], d['X 25 junk'] = \
-        #     unpack(self.header['byte order'] + '24s 4d 8i 48s d i 28s 14i 8s 176s', hdr.read(416))
+        #     unpack(self._bo + '24s 4d 8i 48s d i 28s 14i 8s 176s', hdr.read(416))
         #
         #     d['pressure 1'] = self._cleanup_string(d['pressure 1'])
         #     d['pressure 2'] = self._cleanup_string(d['pressure 2'])
@@ -227,7 +230,7 @@ class SIMSReader(object):
         else:
             hdr.seek(analparamnano_pos + 16)
             self.header['analysis version'], self.header['n50large'], self.header['comment'] = \
-                unpack(self.header['byte order'] + '2i 8x 256s', hdr.read(272))
+                unpack(self._bo + '2i 8x 256s', hdr.read(272))
 
             self.header['n50large'] = bool(self.header['n50large'])
             self.header['comment'] = self._cleanup_string(self.header['comment'])
@@ -259,7 +262,7 @@ class SIMSReader(object):
                 self.header['NanoSIMSHeader']['working frame width']
 
             # Header for non-nano SIMS
-            magic = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            magic = unpack(self._bo + 'i', hdr.read(4))[0]
             if magic != 2306:
                 msg = 'SIMSHeader magic number not found here at byte {}.'
                 msg = msg.format(hdr.tell()-4)
@@ -352,7 +355,7 @@ class SIMSReader(object):
         # Called readDefAnalysis in OpenMIMS
         d['sample type'], d['data included'], d['sample x'], d['sample y'], \
             d['analysis type'], d['user name'], d['sample z'], date, time = \
-            unpack(self.header['byte order'] + '4i 32s 16s i 12x 16s 16s', hdr.read(112))
+            unpack(self._bo + '4i 32s 16s i 12x 16s 16s', hdr.read(112))
 
         d['data included'] = bool(d['data included'])
         d['user name'] = self._cleanup_string(d['user name'])
@@ -366,7 +369,7 @@ class SIMSReader(object):
             d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
                 d['magnification'], d['size type'], d['size detector'], \
                 d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
-                unpack(self.header['byte order'] + '16s 3i 3h 2x 3i', hdr.read(48))
+                unpack(self._bo + '16s 3i 3h 2x 3i', hdr.read(48))
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = {}
@@ -378,7 +381,7 @@ class SIMSReader(object):
                 d['steps'], d['steps x'], d['steps y'], d['step size'], \
                 d['step waittime'], d['frames'], d['beam blanking'], \
                 d['presputtering'], d['presputtering duration'] = \
-                unpack(self.header['byte order'] + '16s 6i d 4i', hdr.read(64))
+                unpack(self._bo + '16s 6i d 4i', hdr.read(64))
 
             d['scan type'] = stage_scan_types.get(d['scan type'], str(d['scan type']))
 
@@ -393,7 +396,7 @@ class SIMSReader(object):
             d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
                 d['magnification'], d['size type'], d['size detector'], \
                 d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
-                unpack(self.header['byte order'] + '16s 4x 3i 3h 2x 3i', hdr.read(52))
+                unpack(self._bo + '16s 4x 3i 3h 2x 3i', hdr.read(52))
 
             # this bit same as stage scan
             d['AutoCal'] = self._autocal(hdr)
@@ -406,7 +409,7 @@ class SIMSReader(object):
 
         # Continue main header for all types
         d['SigRef'] = self._sigref(hdr)
-        d['masses'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        d['masses'] = unpack(self._bo + 'i', hdr.read(4))[0]
 
         # scan type is set for stage scan analysis, set others
         if isinstance(d['scan type'], int):
@@ -430,7 +433,7 @@ class SIMSReader(object):
             n = 0
 
         # Not sure what this is, memory pointers? Not needed.
-        # d['mass table ptr'] = unpack(self.header['byte order'] + n*'i', hdr.read(n*4))
+        # d['mass table ptr'] = unpack(self._bo + n*'i', hdr.read(n*4))
         hdr.seek(n*4, 1)
 
         if self.header['file type'] in (21, 22, 26, 41):
@@ -443,7 +446,7 @@ class SIMSReader(object):
             mi['trolley index'], unknown, mi['mass'], \
                 mi['matrix or trace'], mi['detector'], mi['wait time'], \
                 mi['frame count time'], mi['offset'], mi['b field index'] = \
-                unpack(self.header['byte order'] + '2i d 2i 2d 2i', hdr.read(48))
+                unpack(self._bo + '2i d 2i 2d 2i', hdr.read(48))
 
             mi.update(self._species(hdr))
 
@@ -474,7 +477,7 @@ class SIMSReader(object):
         # for stage scan image; not true
         d = {}
         d['autocal enabled'], d['label'], d['begin'], d['duration'] = \
-            unpack(self.header['byte order'] + 'i 64s 2i', hdr.read(76))
+            unpack(self._bo + 'i 64s 2i', hdr.read(76))
 
         d['autocal enabled'] = bool(d['autocal enabled'])
         d['label'] = self._cleanup_string(d['label'])
@@ -486,7 +489,7 @@ class SIMSReader(object):
         d = {}
         d['hvcontrol enabled'], d['label'], d['begin'], d['duration'], d['limit low'], \
             d['limit high'], d['step'], d['bandpass width'], d['count time'] = \
-            unpack(self.header['byte order'] + 'i 64s 2i 3d i d', hdr.read(112))
+            unpack(self._bo + 'i 64s 2i 3d i d', hdr.read(112))
 
         d['hvcontrol enabled'] = bool(d['hvcontrol enabled'])
         d['label'] = self._cleanup_string(d['label'])
@@ -496,10 +499,10 @@ class SIMSReader(object):
         """ Internal function; reads 160 bytes; returns SigRef dict """
         # Called SigRef in OpenMIMS
         d = {}
-        d['sigref enabled'] = bool(unpack(self.header['byte order'] + 'i', hdr.read(4))[0])
+        d['sigref enabled'] = bool(unpack(self._bo + 'i', hdr.read(4))[0])
         d['Species'] = self._species(hdr)
         d['detector'], d['offset'], d['quantity'] = \
-            unpack(self.header['byte order'] + '3i', hdr.read(12))
+            unpack(self._bo + '3i', hdr.read(12))
         return d
 
     def _species(self, hdr):
@@ -511,7 +514,7 @@ class SIMSReader(object):
         # but a single byte char.
         d['numeric flag'], d['numeric value'], d['elements'], \
             d['charges'], d['charge label'], d['label'] = \
-            unpack(self.header['byte order'] + '4i c 64s', hdr.read(81))
+            unpack(self._bo + '4i c 64s', hdr.read(81))
 
         d['label'] = self._cleanup_string(d['label'])
         d['charge label'] = self._cleanup_string(d['charge label'])
@@ -522,7 +525,7 @@ class SIMSReader(object):
         # n_isotopes (here: isotope number) is offset from main atomic Z number.
         # Also: collapse ElementTable (Tabelts) into main dict, too many layers.
         hdr.seek(3, 1)
-        atoms = unpack(self.header['byte order'] + '15i', hdr.read(60))
+        atoms = unpack(self._bo + '15i', hdr.read(60))
         d['atomic number'] = tuple(n for n in atoms[::3])
         d['isotope number'] = tuple(n for n in atoms[1::3])
         d['stoich number'] = tuple(n for n in atoms[2::3])
@@ -537,7 +540,7 @@ class SIMSReader(object):
             raise TypeError('Name must be one of "poly", "champs", or "offset".')
 
         hdr.seek(pos + 16)
-        length = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+        length = unpack(self._bo + 'i', hdr.read(4))[0]
         d = []
         for p in range(length):
             if name == 'poly':
@@ -563,7 +566,7 @@ class SIMSReader(object):
             d['detector type'], d['electron scan'], d['scanning mode'], \
             d['beam blanking'], d['PeakCenter']['peakcenter enabled'], \
             d['PeakCenter']['start'], d['PeakCenter']['frequency'], d['b fields'] = \
-            unpack(self.header['byte order'] + '25i', hdr.read(100))
+            unpack(self._bo + '25i', hdr.read(100))
 
         d['PeakCenter']['peakcenter enabled'] = bool(d['PeakCenter']['peakcenter enabled'])
         d['regulation mode'] = bool(d['regulation mode'])
@@ -581,14 +584,14 @@ class SIMSReader(object):
         hdr.seek(288, 1)
 
         # Is this the nPrintRed from OpenMIMS?
-        d['print results'] = bool(unpack(self.header['byte order'] + 'i', hdr.read(4))[0])
+        d['print results'] = bool(unpack(self._bo + 'i', hdr.read(4))[0])
 
         d['SibCenterHor'] = self._sib_center(hdr)
         d['SibCenterVert'] = self._sib_center(hdr)
 
         # Duplicate and store these two in sub dicts
         b_field_index, has_sib_center = \
-            unpack(self.header['byte order'] + '2i', hdr.read(8))
+            unpack(self._bo + '2i', hdr.read(8))
         if b_field_index < 0:
             b_field_index = None
         has_sib_center = bool(has_sib_center)
@@ -605,7 +608,7 @@ class SIMSReader(object):
             d['PeakCenter']['E0P offset'], d['E0SCenter']['steps'], \
             d['baseline measurement'], d['baseline offset'], \
             d['baseline frequency'] = \
-            unpack(self.header['byte order'] + '5i d i', hdr.read(32))
+            unpack(self._bo + '5i d i', hdr.read(32))
         return d
 
     def _sib_center(self, hdr):
@@ -614,7 +617,7 @@ class SIMSReader(object):
         d = {}
         d['detector'], d['start'], d['step size'], d['center'], \
             d['50% width'], d['count time'] = \
-            unpack(self.header['byte order'] + '3i 4x 2d i 4x', hdr.read(40))
+            unpack(self._bo + '3i 4x 2d i 4x', hdr.read(40))
 
         if d['detector'] < 0:
             d['detector'] = None
@@ -629,7 +632,7 @@ class SIMSReader(object):
         d['detector'], d['start'], d['step size'], d['center'], \
             d['delta'], d['count time'], d['b field index'], \
             d['energy center enabled'], d['frequency'] = \
-            unpack(self.header['byte order'] + '3i 4x 2d i 4x 3i', hdr.read(52))
+            unpack(self._bo + '3i 4x 2d i 4x 3i', hdr.read(52))
 
         d['energy center enabled'] = bool(d['energy center enabled'])
         d['count time'] /= 100  # 10 ms increments to seconds
@@ -646,7 +649,7 @@ class SIMSReader(object):
         d = {}
         d['b field index'], d['detector'], d['start'], d['step size'], \
             d['count time'], d['center'], d['80% width'], d['E0S center enabled'] = \
-            unpack(self.header['byte order'] + '5i 2d i', hdr.read(40))
+            unpack(self._bo + '5i 2d i', hdr.read(40))
 
         d['E0S center enabled'] = bool(d['E0S center enabled'])
         d['count time'] /= 100  # 10 ms increments to seconds
@@ -663,7 +666,7 @@ class SIMSReader(object):
         d['b field enabled'], d['b field'], d['wait time'], \
             d['time per pixel'], d['time per step'], d['wait time computed'], \
             d['E0W offset'], d['Q'], d['LF4'], d['hex val'], d['frames per bfield'] = \
-            unpack(self.header['byte order'] + '4i d 6i', hdr.read(48))
+            unpack(self._bo + '4i d 6i', hdr.read(48))
 
         d['b field enabled'] = bool(d['b field enabled'])
         d['wait time computed'] = bool(d['wait time computed'])
@@ -728,7 +731,7 @@ class SIMSReader(object):
             d['used for baseline'], d['50% width'], d['peakcenter side'], \
             d['peakcenter count time'], d['used for sib center'], d['unit correction'], \
             d['deflection'], d['used for energy center'], d['used for E0S center'] = \
-            unpack(self.header['byte order'] + '64s 2d 8i 2d 6i d 4i d 2i', hdr.read(192))
+            unpack(self._bo + '64s 2d 8i 2d 6i d 4i d 2i', hdr.read(192))
 
         # 16 extra bytes per trolley entry, not in OpenMIMS
         # Only certain versions?
@@ -760,7 +763,7 @@ class SIMSReader(object):
         d = {}
         d['used for phd scan'], d['phd start'], d['phd step size'], \
             d['phd points'], d['phd count time'], d['phd scan repeat'] = \
-            unpack(self.header['byte order'] + '6i', hdr.read(24))
+            unpack(self._bo + '6i', hdr.read(24))
 
         d['used for phd scan'] = bool(d['used for phd scan'])
         d['phd count time'] /= 100
@@ -778,31 +781,31 @@ class SIMSReader(object):
         d = {}
         start_position = hdr.tell()
         d['source'], d['current start'], d['current end'], d['Lduo'], d['L1'] =\
-            unpack(self.header['byte order'] + '8s 4i', hdr.read(24))
+            unpack(self._bo + '8s 4i', hdr.read(24))
 
         # Each widths list is 10 ints long
-        d['Dduo'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['Dduo widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
-        d['D0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['D0 widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
-        d['D1'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-        d['D1 widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+        d['Dduo'] = unpack(self._bo + 'i', hdr.read(4))[0]
+        d['Dduo widths'] = tuple(unpack(self._bo + '10i', hdr.read(40)))
+        d['D0'] = unpack(self._bo + 'i', hdr.read(4))[0]
+        d['D0 widths'] = tuple(unpack(self._bo + '10i', hdr.read(40)))
+        d['D1'] = unpack(self._bo + 'i', hdr.read(4))[0]
+        d['D1 widths'] = tuple(unpack(self._bo + '10i', hdr.read(40)))
 
         # 4 bytes unused
         hdr.seek(4, 1)
         d['raster'], d['oct45'], d['oct90'], d['E0P'], d['pressure analysis chamber'] = \
-            unpack(self.header['byte order'] + '4d 32s', hdr.read(64))
+            unpack(self._bo + '4d 32s', hdr.read(64))
 
         d['source'] = self._cleanup_string(d['source'])
         d['pressure analysis chamber'] = self._cleanup_string(d['pressure analysis chamber'])
 
         if self.header['analysis version'] >= 3:
-            d['L0'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            d['L0'] = unpack(self._bo + 'i', hdr.read(4))[0]
         if self.header['analysis version'] >= 4:
-            d['hv cesium'], d['hv duo'] = unpack(self.header['byte order'] + '2i', hdr.read(8))
+            d['hv cesium'], d['hv duo'] = unpack(self._bo + '2i', hdr.read(8))
             # DCs not in OpenMIMS; only in certain release/version?
-            d['Dcs'] = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
-            d['Dcs widths'] = tuple(unpack(self.header['byte order'] + '10i', hdr.read(40)))
+            d['Dcs'] = unpack(self._bo + 'i', hdr.read(4))[0]
+            d['Dcs widths'] = tuple(unpack(self._bo + '10i', hdr.read(40)))
 
         # skip bytes until total read in this function is 552
         # OpenMIMS: size_Ap_primary_nano = 552
@@ -816,7 +819,7 @@ class SIMSReader(object):
         """ Internal function; reads 192 bytes; returns SecondaryBeam dict. """
         # Called ApSecondaryNano in OpenMIMS
         d = {}
-        tmp = unpack(self.header['byte order'] + 'd 42i 2d', hdr.read(192))
+        tmp = unpack(self._bo + 'd 42i 2d', hdr.read(192))
         d['E0W'], d['ES'] = tmp[:2]
         d['ES widths'] = tmp[2:12]
         d['ES heights'] = tuple(tmp[12:22])
@@ -841,7 +844,7 @@ class SIMSReader(object):
             d['pressure multicollection chamber'], \
             d['FCs']['fc background setup positive'], \
             d['FCs']['fc background setup negative'] = \
-            unpack(self.header['byte order'] + '4d 32s 2i', hdr.read(72))
+            unpack(self._bo + '4d 32s 2i', hdr.read(72))
 
         d['pressure multicollection chamber'] = \
             self._cleanup_string(d['pressure multicollection chamber'])
@@ -868,7 +871,7 @@ class SIMSReader(object):
         d['Detector 6'].update(self._electron_multiplier(hdr))
         d['Detector 7'] = self._exit_slits(hdr)
         d['Detector 7'].update(self._electron_multiplier(hdr))
-        d['exit slit xl'] = unpack(self.header['byte order'] + '70i', hdr.read(280))
+        d['exit slit xl'] = unpack(self._bo + '70i', hdr.read(280))
         return d
 
     def _detectors3(self, hdr):
@@ -881,11 +884,11 @@ class SIMSReader(object):
             det = 'Detector {}'.format(n)
             d[det] = {}
             d[det]['fc background setup positive'], d[det]['fc background setup negative'] = \
-                unpack(self.header['byte order'] + '2i', hdr.read(8))
+                unpack(self._bo + '2i', hdr.read(8))
 
         for n in range(1, 8):
             det = 'Detector {}'.format(n)
-            det_type = unpack(self.header['byte order'] + 'i', hdr.read(4))[0]
+            det_type = unpack(self._bo + 'i', hdr.read(4))[0]
             d[det]['detector'] = detectors.get(det_type, str(det_type))
         return d
 
@@ -903,17 +906,17 @@ class SIMSReader(object):
         # slit 3, so add labels to avoid confusion.
 
         d['exit slit'], d['exit slit size'] = \
-            unpack(self.header['byte order'] + '2i', hdr.read(8))
+            unpack(self._bo + '2i', hdr.read(8))
         d['exit slit label'] = exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
         d['exit slit size label'] = \
             exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
 
-        w0 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        w1 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        w0 = tuple(unpack(self._bo + '5i', hdr.read(20)))
+        w1 = tuple(unpack(self._bo + '5i', hdr.read(20)))
         w2 = (0,0,0,0,0)
         d['exit slit widths'] = (w0, w1, w2)
-        h0 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        h1 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        h0 = tuple(unpack(self._bo + '5i', hdr.read(20)))
+        h1 = tuple(unpack(self._bo + '5i', hdr.read(20)))
         h2 = (0,0,0,0,0)
         d['exit slit heights'] = (h0, h1, h2)
         return d
@@ -922,7 +925,7 @@ class SIMSReader(object):
         """ Internal function; reads 16 bytes, returns EM dict. """
         d = {}
         d['em yield'], d['em background'], d['em deadtime'] = \
-            unpack(self.header['byte order'] + 'd 2i', hdr.read(16))
+            unpack(self._bo + 'd 2i', hdr.read(16))
         return d
 
     def _sims_header(self, hdr):
@@ -934,7 +937,7 @@ class SIMSReader(object):
             d['sigref scan time'], d['sigref measure time'], \
             d['sigref beam on time'], d['eps centering enabled'], d['eps enabled'], \
             d['eps central energy'], d['eps b field'] = \
-            unpack(self.header['byte order'] + 'i 256s 256s 10i', hdr.read(556))
+            unpack(self._bo + 'i 256s 256s 10i', hdr.read(556))
 
         d['EPSCentralSpecies'] = self._species(hdr)
         d['EPSReferenceSpecies'] = self._species(hdr)
@@ -944,7 +947,7 @@ class SIMSReader(object):
             d['sample rotation'], d['sample rotation speed'], \
             d['sample rotation synced'], d['sample name'], \
             d['user name'], d['method name'] = \
-            unpack(self.header['byte order'] + '2d 3i 80s 32s 256s', hdr.read(396))
+            unpack(self._bo + '2d 3i 80s 32s 256s', hdr.read(396))
 
         d['original filename'] = self._cleanup_string(d['original filename'])
         d['matrix'] = self._cleanup_string(d['matrix'])
@@ -994,7 +997,7 @@ class SIMSReader(object):
         start_position = hdr.tell()
         d['isf filename'], d['preset name'], d['calibration date'], \
             d['enabled'], d['parameters'] = \
-            unpack(self.header['byte order'] + '256s 224s 32s 2i', hdr.read(520))
+            unpack(self._bo + '256s 224s 32s 2i', hdr.read(520))
 
         d['enabled'] = bool(d['enabled'])
         d['isf filename'] = self._cleanup_string(d['isf filename'])
@@ -1010,7 +1013,7 @@ class SIMSReader(object):
         # Only read first d['parameters'] parameters.
         for p in range(d['parameters']):
             param_id, value, param_name = \
-                unpack(self.header['byte order'] + '2i 20s', hdr.read(28))
+                unpack(self._bo + '2i 20s', hdr.read(28))
 
             param_name = self._cleanup_string(param_name)
             if not param_name:
@@ -1057,7 +1060,7 @@ class SIMSReader(object):
         d = {}
         d['header size'], d['type'], d['width'], d['height'], d['bytes per pixel'], \
             d['masses'], d['planes'], d['raster'], d['original filename'] = \
-            unpack(self.header['byte order'] + 'i 6h i 64s', hdr.read(84))
+            unpack(self._bo + 'i 6h i 64s', hdr.read(84))
 
         # Called nickname in OpenMIMS
         d['original filename'] = self._cleanup_string(d['original filename'])
@@ -1070,11 +1073,11 @@ class SIMSReader(object):
         # Not in OpenMIMS
         d = {}
         d['blocks'], d['frames per block'], d['rejection sigma'], ratios = \
-            unpack(self.header['byte order'] + '4i', hdr.read(16))
+            unpack(self._bo + '4i', hdr.read(16))
         # ratios is the number of ratios to follow. Each ratio is a set of two ints.
         # Each int is the index (0-index) of the species in the mass list. First int
         # is numerator, second is denomenator of ratio.
-        r = unpack(self.header['byte order'] + '{}i'.format(2*ratios), hdr.read(2*4*ratios))
+        r = unpack(self._bo + '{}i'.format(2*ratios), hdr.read(2*4*ratios))
         rtxt = tuple(self.header['label list'][n] for n in r)
         rfmt = tuple(self.header['label list fmt'][n] for n in r)
 
@@ -1089,10 +1092,10 @@ class SIMSReader(object):
         """ internal function; read data for image type. """
         if self.header['Image']['bytes per pixel'] == 2:
             # 16-bit unsigned integers, short
-            dt = np.dtype(self.header['byte order'] + 'H')
+            dt = np.dtype(self._bo + 'H')
         elif self.header['Image']['bytes per pixel'] == 4:
             # 32-bit unsigned integers, int
-            dt = np.dtype(self.header['byte order'] + 'I')
+            dt = np.dtype(self._bo + 'I')
 
         shape = [self.header['Image']['planes'],
                  self.header['Image']['masses'],
@@ -1133,13 +1136,12 @@ class SIMSReader(object):
         #     N doubles: cumulative count time in s
         #     N doubles: data
         self.fh.seek(self.header['header size'])
-        bo = self.header['byte order']
-        blocks = unpack(bo + 'i', self.fh.read(4))[0]
+        blocks = unpack(self._bo + 'i', self.fh.read(4))[0]
 
         data = []
         for block in range(blocks):
-            points = unpack(bo + 'i', self.fh.read(4))[0]
-            d = np.fromfile(self.fh, dtype=bo+'f8', count=2*points).reshape(2, points)
+            points = unpack(self._bo + 'i', self.fh.read(4))[0]
+            d = np.fromfile(self.fh, dtype=self._bo+'f8', count=2*points).reshape(2, points)
             data.append(d[1])
 
         if pd:
