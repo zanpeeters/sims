@@ -266,10 +266,6 @@ class SIMSReader(object):
                 raise ValueError(msg)
             self.header['SIMSHeader'] = self._sims_header(hdr)
 
-            # This is messy: widths and heights for XL exit slits inside detectors2.
-            # There is no way to update one item of a list inside a dict inside another
-            # dict using dict.update(). All widths and heights are therefore stored as a
-            # single list. Pop out of dict, slice up, put back in right place.
             if self.header['analysis version'] >= 5:
                 if analparamnanobis_pos < 0:
                     msg = 'Anal_param_nano_bis not found in header, '
@@ -278,12 +274,15 @@ class SIMSReader(object):
                 else:
                     hdr.seek(analparamnanobis_pos + 24)
                     self.header['Detectors'].update(self._detectors2(hdr))
-                    exsl = self.header['Detectors'].pop('exit slit xl')
+                    xl = self.header['Detectors'].pop('exit slit xl')
                     for n in range(7):
-                        det = 'Detector {}'.format(n+1)
-                        self.header['Detectors'][det]['exit slit widths'][2] = exsl[5*n:5*(n+1)]
-                        self.header['Detectors'][det]['exit slit heights'][2] = \
-                            exsl[5*(n+1):5*(n+2)]
+                        det = self.header['Detectors']['Detector {}'.format(n+1)]
+                        w = list(det['exit slit widths'])
+                        w[2] = xl[5*n:5*(n+1)]
+                        det['exit slit widths'] = tuple(w)
+                        h = list(det['exit slit heights'])
+                        h[2] = xl[5*(n+1):5*(n+2)]
+                        det['exit slit heights'] = tuple(h)
 
                 # Presets
                 self.header['Presets'] = self._presets(hdr)
@@ -429,8 +428,10 @@ class SIMSReader(object):
             n = 20
         else:
             n = 0
-        d['mass table ptr'] = tuple(unpack(self.header['byte order'] + n*'i', hdr.read(n*4)))
-        d['mass table ptr'] = [n for n in d['mass table ptr'] if n != 0]
+
+        # Not sure what this is, memory pointers? Not needed.
+        # d['mass table ptr'] = unpack(self.header['byte order'] + n*'i', hdr.read(n*4))
+        hdr.seek(n*4, 1)
 
         if self.header['file type'] in (21, 22, 26, 41):
             hdr.seek(4, 1)  # 4 bytes unused
@@ -521,12 +522,10 @@ class SIMSReader(object):
         # n_isotopes (here: isotope number) is offset from main atomic Z number.
         # Also: collapse ElementTable (Tabelts) into main dict, too many layers.
         hdr.seek(3, 1)
-        d['atomic number'] = [0, 0, 0, 0, 0]
-        d['isotope number'] = [0, 0, 0, 0, 0]
-        d['stoich number'] = [0, 0, 0, 0, 0]
-        for n in range(5):
-            d['atomic number'][n], d['isotope number'][n], d['stoich number'][n] = \
-                unpack(self.header['byte order'] + '3i', hdr.read(12))
+        atoms = unpack(self.header['byte order'] + '15i', hdr.read(60))
+        d['atomic number'] = tuple(n for n in atoms[::3])
+        d['isotope number'] = tuple(n for n in atoms[1::3])
+        d['stoich number'] = tuple(n for n in atoms[2::3])
         return d
 
     def _pco_list(self, hdr, name, pos):
@@ -865,12 +864,11 @@ class SIMSReader(object):
         # Called AnalysisParam in OpenMIMS, first part only
         # presets separate, last part in _detectors3
         d = {}
-        if self.header['analysis version'] >= 5:
-            d['Detector 6'] = self._exit_slits(hdr)
-            d['Detector 6'].update(self._electron_multiplier(hdr))
-            d['Detector 7'] = self._exit_slits(hdr)
-            d['Detector 7'].update(self._electron_multiplier(hdr))
-            d['exit slit xl'] = list(unpack(self.header['byte order'] + '70i', hdr.read(280)))
+        d['Detector 6'] = self._exit_slits(hdr)
+        d['Detector 6'].update(self._electron_multiplier(hdr))
+        d['Detector 7'] = self._exit_slits(hdr)
+        d['Detector 7'].update(self._electron_multiplier(hdr))
+        d['exit slit xl'] = unpack(self.header['byte order'] + '70i', hdr.read(280))
         return d
 
     def _detectors3(self, hdr):
@@ -910,14 +908,14 @@ class SIMSReader(object):
         d['exit slit size label'] = \
             exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
 
-        d['exit slit widths'] = [0, 0, 0]
-        d['exit slit widths'][0] = list(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        d['exit slit widths'][1] = list(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        d['exit slit widths'][2] = [0]*5
-        d['exit slit heights'] = [0, 0, 0]
-        d['exit slit heights'][0] = list(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        d['exit slit heights'][1] = list(unpack(self.header['byte order'] + '5i', hdr.read(20)))
-        d['exit slit heights'][2] = [0]*5
+        w0 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        w1 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        w2 = (0,0,0,0,0)
+        d['exit slit widths'] = (w0, w1, w2)
+        h0 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        h1 = tuple(unpack(self.header['byte order'] + '5i', hdr.read(20)))
+        h2 = (0,0,0,0,0)
+        d['exit slit heights'] = (h0, h1, h2)
         return d
 
     def _electron_multiplier(self, hdr):
