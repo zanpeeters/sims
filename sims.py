@@ -142,8 +142,10 @@ class SIMSReader(object):
         # From OpenMIMS documentation I know that PolyList is as list of
         # Species dicts, but don't know how to read ChampsList or OffsetList.
         if polylist_pos < 0:
-            if self.header['analysis type'].endswith('RTI'):
+            if self.header['analysis type'].endswith('RTI') \
+            or self.header['file type'] == 35:
                 # Case 1: No PL marker, so far only found for Real Time Images
+                # or beam stability file
                 hdr.seek(216, 1)
             else:
                 msg = 'No PolyList marker found in header and not and RTI image. '
@@ -304,8 +306,8 @@ class SIMSReader(object):
         if self.header['file type'] == 26:
             hdr.seek(-176, 2)
             self.header['Isotopes'] = self._isotopes_hdr(hdr)
-        elif self.header['file type'] in (21, 22):
-            # no image header for line scan
+        elif self.header['file type'] in (21, 22, 35):
+            # no image header for line scan or beam stability
             pass
         else:
             hdr.seek(-84, 2)
@@ -346,6 +348,8 @@ class SIMSReader(object):
             # line scan types, no ImageHeader
             warnings.warn('No data read for line scan, fix')
             pass
+        elif self.header['file type'] == 35:
+            self._beamstability_data()
         else:
             self._image_data()
 
@@ -404,6 +408,18 @@ class SIMSReader(object):
 
             # 24 bytes unknown, not sure if they go here or before AutoCal
             hdr.seek(24, 1)
+        elif self.header['file type'] == 35:
+            d['original filename'], unknown, d['analysis duration'], d['frames'] = \
+                unpack(self._bo + '16s 3i 48x', hdr.read(76))
+            
+            # Set these here so that they can be converted later,
+            # or until I figure out what else is in 48 skipped bytes.
+            d['scan type'] = 0
+            d['beam blanking'] = 0
+            d['presputtering'] = 0
+
+            d['AutoCal'] = self._autocal(hdr)
+            d['HVControl'] = self._hvcontrol(hdr)
         else:
             raise TypeError('What type of image are you? {}'.format(self.header['file type']))
 
@@ -422,7 +438,7 @@ class SIMSReader(object):
         d['presputtering'] = bool(d['presputtering'])
         d['original filename'] = self._cleanup_string(d['original filename'])
 
-        if self.header['file type'] in (21, 26, 27, 29, 39):
+        if self.header['file type'] in (21, 26, 27, 29, 35, 39):
             if self.header['file version'] >= 4108:
                 n = 60
             else:
@@ -436,7 +452,7 @@ class SIMSReader(object):
         # d['mass table ptr'] = unpack(self._bo + n*'i', hdr.read(n*4))
         hdr.seek(n*4, 1)
 
-        if self.header['file type'] in (21, 22, 26, 41):
+        if self.header['file type'] in (21, 22, 26, 41, 35):
             hdr.seek(4, 1)  # 4 bytes unused
 
         # Mass table, dict by species label.
@@ -1216,6 +1232,27 @@ class SIMSReader(object):
                         tr['em background baseline'] = baseline[spc]
                     elif tr['detector'] == 'FC':
                         tr['fc background baseline'] = baseline[spc]
+
+    def _beamstability_data(self):
+        """ Internal function; read data in .bs beam stability file."""
+        traces = unpack(self._bo + 'i', self.fh.read(4))[0]
+        time = []
+        data = []
+        for t in range(traces):
+            points = unpack(self._bo + 'i', self.fh.read(4))[0]
+            d = np.fromfile(self.fh, dtype=self._bo+'f8', count=2*points).reshape(2, points)
+            time = d[0]
+            data.append(d[1])
+
+        if pd:
+            self.data = pd.DataFrame(data).T
+            self.data.index = time
+            self.data.index.name = 'seconds'
+            self.data.columns = self.header['label list']
+            self.data.columns.name = 'counts/s'
+        else:
+            self._data_corr = np.vstack(time, data)
+
 
     def _cleanup_string(self, bytes):
         """ Internal function; cuts off bytes at first null-byte,

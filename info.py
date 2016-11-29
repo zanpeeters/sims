@@ -23,7 +23,7 @@ file_types = {
     41: 'stage scan image',
 }
 
-supported_file_types = [ 21, 22, 26, 27, 29, 39, 41 ]
+supported_file_types = [ 21, 22, 26, 27, 29, 35, 39, 41 ]
 
 peakcenter_sides = {
     0: 'left',
