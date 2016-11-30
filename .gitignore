@@ -58,9 +58,5 @@ docs/_build/
 # Above is standard Python .gitignore
 # Below is my additions
 
-# do track file OpenMIMS.tar.bz2, but not extracted tree.
-doc/OpenMIMS/
-
-# SVN
-**/.svn/
-**/.svnignore
+# This directory contains stuff I don't want tracked by git.
+other/
