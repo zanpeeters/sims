@@ -57,16 +57,29 @@ __all__ = ['SIMSReader', 'SIMS']
 
 class SIMSReader(object):
     """ Base class for reading a SIMS file. """
-    def __init__(self, fileobject):
+    def __init__(self, fileobject, filename=''):
         """ This class object does not open or close files, and nothing will
             be read by default. An empty header and data array are created.
             Provides all methods needed for reading a SIMS file.
         """
         self.fh = fileobject
+        self.filename = filename
         self.header = {}
         self.data = None
         self._data_corr = None
         self._bo = ''
+
+    def __deepcopy__(self, memo):
+        """ Assist deep-copying of this class.
+            Everything except the filehandle is copied.
+        """
+        new = type(self)(None)
+        for k in self.__dict__.keys():
+            if k in ('fh', 'fh_archive'):
+                new.__dict__[k] = None
+            else:
+                new.__dict__[k] = copy.deepcopy(self.__dict__[k], memo)
+        return new
 
     def peek(self):
         """ Peek into image file and determine basic file information.
@@ -361,6 +374,22 @@ class SIMSReader(object):
             self._beamstability_data()
         else:
             self._image_data()
+
+    def copy(self):
+        """ Return a copy of the SIMS object.
+
+            Usage: s2 = s.copy()
+
+            The copy is always a deepcopy, meaning that all data and the full
+            header are copied, there are no references to the original. This
+            way the data of the copy can be altered without the data of the
+            original being changed as well.
+
+            The only exception is the filehandle(s) fh (and fh_archive): they
+            cannot be copied. File operations such as read_header and
+            read_data is therefore not possible after copy.
+        """
+        return copy.deepcopy(self)
 
     def _main_header(self, hdr):
         """ Internal function; reads variable number of bytes; returns main header dict """
@@ -1337,31 +1366,18 @@ class SIMS(SIMSReader, TransparentOpen):
 
             SIMS supports the 'with' statement.
         """
+        if not filename:
+            return
+
         TransparentOpen.__init__(self, filename, file_in_archive=file_in_archive,
                                  password=password)
         self.fh.seek(0)
-        SIMSReader.__init__(self, self.fh)
+        SIMSReader.__init__(self, self.fh, filename=filename)
 
         self.peek()
         self.read_header()
         self.read_data()
         self.close()
-
-        # Delete filehandles, so deepcopy can work.
-        del self.fh
-        del self.fh_archive
-
-    def copy(self):
-        """ Return a copy of the SIMS object.
-
-            Usage: s2 = s.copy()
-
-            The copy is always a deepcopy, meaning that all data and the full
-            header are copied, there are no references to the original. This
-            way the data of the copy can be altered without the data of the
-            original being changes as well.
-        """
-        return copy.deepcopy(self)
 
 
 #####################################################################################
