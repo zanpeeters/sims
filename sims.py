@@ -118,9 +118,11 @@ class SIMSReader(object):
         polylist_pos = hdr.rfind(b'Poly_list\x00')
         champslist_pos = hdr.rfind(b'Champs_list\x00')
         offsetlist_pos = hdr.rfind(b'Offset_list\x00')
-        analparam_pos = hdr.rfind(b'Anal_param\x00')
-        analparamnano_pos = hdr.rfind(b'Anal_param_nano\x00')
-        analparamnanobis_pos = hdr.rfind(b'Anal_param_nano_bis\x00')
+        
+        # Find first occurance for these.
+        analparam_pos = hdr.find(b'Anal_param\x00')
+        analparamnano_pos = hdr.find(b'Anal_param_nano\x00')
+        analparamnanobis_pos = hdr.find(b'Anal_param_nano_bis\x00')
 
         # Turn byte-string into BytesIO file-like object; reading and
         # keeping track of where we are is easier that way than trying to
