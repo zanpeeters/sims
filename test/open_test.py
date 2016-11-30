@@ -44,14 +44,12 @@ class TestAllInput(unittest.TestCase):
         for f in test_compression_files[1:]:
             f = os.path.join('test', f)
             with self.subTest(f=f):
-                with sims.SIMS(f) as compressed:
-                    self.assertEqual(uncompressed.header, compressed.header)
+                with sims.SIMS(f) as compr:
+                    self.assertEqual(unc.header, compr.header)
                     if sims.pd:
-                        sims.np.testing.assert_equal(uncompressed.data.values,
-                            compressed.data.values)
+                        sims.np.testing.assert_equal(unc.data.values, compr.data.values)
                     else:
-                        sims.np.testing.assert_equal(uncompressed.data,
-                            compressed.data)
+                        sims.np.testing.assert_equal(unc.data, compr.data)
 
     def test_open_im(self):
         """ Test opening of different flavours of the .im file. """
