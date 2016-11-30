@@ -118,7 +118,7 @@ class SIMSReader(object):
         polylist_pos = hdr.rfind(b'Poly_list\x00')
         champslist_pos = hdr.rfind(b'Champs_list\x00')
         offsetlist_pos = hdr.rfind(b'Offset_list\x00')
-        
+
         # Find first occurance for these.
         analparam_pos = hdr.find(b'Anal_param\x00')
         analparamnano_pos = hdr.find(b'Anal_param_nano\x00')
@@ -181,9 +181,15 @@ class SIMSReader(object):
         self.header['BFields'] = []
         for b in range(self.header['NanoSIMSHeader']['b fields']):
             bf = self._bfield(hdr)
-            bf['counting frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['counting frame height'] * self.header['NanoSIMSHeader']['counting frame width']
-            bf['scanning frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['scanning frame height'] * self.header['NanoSIMSHeader']['scanning frame width']
-            bf['working frame time'] = bf['time per pixel'] * self.header['NanoSIMSHeader']['working frame height'] * self.header['NanoSIMSHeader']['working frame width']
+            bf['counting frame time'] = bf['time per pixel'] * \
+                self.header['NanoSIMSHeader']['counting frame height'] * \
+                self.header['NanoSIMSHeader']['counting frame width']
+            bf['scanning frame time'] = bf['time per pixel'] * \
+                self.header['NanoSIMSHeader']['scanning frame height'] * \
+                self.header['NanoSIMSHeader']['scanning frame width']
+            bf['working frame time'] = bf['time per pixel'] * \
+                self.header['NanoSIMSHeader']['working frame height'] * \
+                self.header['NanoSIMSHeader']['working frame width']
             self.header['BFields'].append(bf)
         # End nanosims_header/bfield based on Poly_list position
 
@@ -233,7 +239,8 @@ class SIMSReader(object):
             warnings.warn(msg)
         else:
             hdr.seek(analparamnano_pos + 16)
-            self.header['analysis version'], self.header['n50large'], self.header['comment'] = \
+            self.header['analysis version'], self.header['n50large'], \
+                self.header['comment'] = \
                 unpack(self._bo + '2i 8x 256s', hdr.read(272))
 
             self.header['n50large'] = bool(self.header['n50large'])
