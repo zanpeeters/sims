@@ -5,6 +5,8 @@ import os
 import unittest
 import sims
 
+filedir = 'files'
+
 test_compression_files = [
     'first_test.im',
     'first_test.im.gz',
@@ -39,10 +41,10 @@ class TestAllInput(unittest.TestCase):
     """ Unittest for all input files in test dir. """
     def test_compression(self):
         """ Test that opening of compressed files works. """
-        uncf = os.path.join('test', test_compression_files[0])
+        uncf = os.path.join(filedir, test_compression_files[0])
         unc = sims.SIMS(uncf)
         for f in test_compression_files[1:]:
-            f = os.path.join('test', f)
+            f = os.path.join(filedir, f)
             with self.subTest(f=f):
                 with sims.SIMS(f) as compr:
                     self.assertEqual(unc.header, compr.header)
@@ -54,7 +56,7 @@ class TestAllInput(unittest.TestCase):
     def test_open_im(self):
         """ Test opening of different flavours of the .im file. """
         for f in test_open_im_files:
-            f = os.path.join('test', f)
+            f = os.path.join(filedir, f)
             with self.subTest(f=f):
                 with sims.SIMS(f) as s:
                     pass
@@ -62,7 +64,7 @@ class TestAllInput(unittest.TestCase):
     def test_open_other(self):
         """ Test opening of other file types. """
         for f in test_open_other_files:
-            f = os.path.join('test', f)
+            f = os.path.join(filedir, f)
             with self.subTest(f=f):
                 with sims.SIMS(f) as s:
                     pass
