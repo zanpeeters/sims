@@ -49,11 +49,55 @@ except ImportError:
 # if sys.version_info.major >= 3:
 #     unicode = str
 
-from .info import *
 from .utils import format_species
 from .transparent import TransparentOpen
 
 __all__ = ['SIMSReader', 'SIMS']
+
+_stage_scan_types = {
+    0: 'stage scan',
+    1: 'beam scan',
+    2: 'image scan',
+}
+
+# large scale, movement control, small scale
+# spot/line/image, beam/stage, raster/static
+_file_types = {
+    21: 'depth profile',
+    22: 'line scan, stage control',
+    26: 'isotope image',
+    27: 'image',
+    29: 'grain mode image',
+    31: 'SIBC file',
+    35: 'beam stability file',
+    39: 'line scan image',
+    41: 'stage scan image',
+}
+
+_supported_file_types = [ 21, 22, 26, 27, 29, 35, 39, 41 ]
+
+_peakcenter_sides = {
+    0: 'left',
+    1: 'right',
+    2: 'both'
+}
+
+_exit_slit_labels = {
+    0: 'slit 1',
+    1: 'slit 2',
+    2: 'slit 3'
+}
+
+_exit_slit_size_labels = {
+    0: 'normal',
+    1: 'large',
+    2: 'extra large'
+}
+
+_detectors = {
+    0: 'EM',
+    1: 'FC'
+}
 
 class SIMSReader(object):
     """ Base class for reading a SIMS file. """
@@ -106,7 +150,7 @@ class SIMSReader(object):
             self.header['header size'] = \
             unpack(self._bo + '3i', snip)
 
-        if self.header['file type'] not in supported_file_types:
+        if self.header['file type'] not in _supported_file_types:
             msg = "File of type {} is not supported at the moment."
             msg = msg.format(self.header['file type'])
             raise NotImplementedError(msg)
@@ -425,7 +469,7 @@ class SIMSReader(object):
                 d['presputtering'], d['presputtering duration'] = \
                 unpack(self._bo + '16s 6i d 4i', hdr.read(64))
 
-            d['scan type'] = stage_scan_types.get(d['scan type'], str(d['scan type']))
+            d['scan type'] = _stage_scan_types.get(d['scan type'], str(d['scan type']))
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = self._hvcontrol(hdr)
@@ -799,9 +843,9 @@ class SIMSReader(object):
         d['used for energy center'] = bool(d['used for energy center'])
         d['used for E0S center'] = bool(d['used for E0S center'])
         d['real trolley'] = bool(d['real trolley'])
-        d['peakcenter side'] = peakcenter_sides.get(d['peakcenter side'],
+        d['peakcenter side'] = _peakcenter_sides.get(d['peakcenter side'],
                                                          str(d['peakcenter side']))
-        d['detector'] = detectors.get(d['detector'], str(d['detector']))
+        d['detector'] = _detectors.get(d['detector'], str(d['detector']))
         d['hmr count time'] /= 100
         d['peakcenter count time'] /= 100
 
@@ -943,7 +987,7 @@ class SIMSReader(object):
         for n in range(1, 8):
             det = 'Detector {}'.format(n)
             det_type = unpack(self._bo + 'i', hdr.read(4))[0]
-            d[det]['detector'] = detectors.get(det_type, str(det_type))
+            d[det]['detector'] = _detectors.get(det_type, str(det_type))
         return d
 
     def _exit_slits(self, hdr):
@@ -961,9 +1005,9 @@ class SIMSReader(object):
 
         d['exit slit'], d['exit slit size'] = \
             unpack(self._bo + '2i', hdr.read(8))
-        d['exit slit label'] = exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
+        d['exit slit label'] = _exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
         d['exit slit size label'] = \
-            exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
+            _exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
 
         w0 = tuple(unpack(self._bo + '5i', hdr.read(20)))
         w1 = tuple(unpack(self._bo + '5i', hdr.read(20)))

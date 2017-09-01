@@ -9,7 +9,7 @@
     to use.
 
     The Cameca and L'image LUTs are distributed with the sims module. Cameca .lut
-    files are located in the LUT directory which is stored as sims.lut.lut_dir. 
+    files are located in the LUT directory which is stored as sims.lut.lut_dir.
     The L'image Colour Table file is located in the same directory and is stored
     as sims.lut.limage_file. Both can be overriden to load from a different
     directory.
@@ -21,9 +21,9 @@ import os, inspect
 # Default directory is 'lut' alongside lut.py
 lut_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 lut_dir = os.path.join(lut_dir, 'lut')
-limage_file = os.path.join(self.lut_dir, 'limagecolors.tbl')
+limage_file = os.path.join(lut_dir, 'limagecolors.tbl')
 
-def load_cameca_lut(self, *names, smooth=True):
+def load_cameca_lut(*names, smooth=True):
     """ Load a Cameca Look-Up Table.
 
         Usage: load_cameca_lut('cameca bw', 'temp', ..., smooth=True)
@@ -71,7 +71,7 @@ def load_cameca_lut(self, *names, smooth=True):
         mpl.register_cmap(cmap=lut)
 
 
-def load_limage_lut(self, *names, smooth=True):
+def load_limage_lut(*names, smooth=True):
     """ Load a L'image Look-Up Table.
 
         Usage: load_limage_lut('blue/white', 'limage prism', ..., smooth=True)
