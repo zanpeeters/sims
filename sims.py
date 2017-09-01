@@ -406,11 +406,11 @@ class SIMSReader(object):
         """
         if not self.header['data included']:
             pass
-        elif self.header['file type'] == 26:
+        elif self.header['file type'] in (21, 26):
             self._isotope_data()
             if os.path.exists(self.filename + '_txt'):
                 self._isotope_txt_data()
-        elif self.header['file type'] in (21, 22):
+        elif self.header['file type'] == 22:
             # line scan types, no ImageHeader
             warnings.warn('No data read for line scan, fix')
             pass
@@ -1224,7 +1224,7 @@ class SIMSReader(object):
             self.data.minor_axis.name = 'x'
 
     def _isotope_data(self):
-        """ Internal function; read data from .is file. """
+        """ Internal function; read data from .is or .dp file. """
         # Data structure:
         #   header
         #   1 int (M): no. blocks (i.e. masses)
@@ -1250,7 +1250,7 @@ class SIMSReader(object):
             self._data_corr = np.vstack(data)
 
     def _isotope_txt_data(self):
-        """ Internal function; read data from .is_txt file. """
+        """ Internal function; read data from .is_txt or .dp_txt file. """
         txt = None
         with open(self.filename + '_txt', mode='rt') as fh:
             txt = fh.readlines()
