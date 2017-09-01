@@ -58,5 +58,7 @@ docs/_build/
 # Above is standard Python .gitignore
 # Below is my additions
 
+.DS_Store
+
 # This directory contains stuff I don't want tracked by git.
 other/
