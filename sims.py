@@ -380,8 +380,8 @@ class SIMSReader(object):
             self.header['Image'] = self._image_hdr(hdr)
 
         # Done reading header. Check for and read external files for extra info.
-        if os.path.exists(os.path.splitext(self.filename)[0] + '.chk_is'):
-            self._read_chk_is()
+        # if os.path.exists(os.path.splitext(self.filename)[0] + '.chk_is'):
+        # self._read_chk_is()
 
     def read_data(self):
         """ Read the image data.
@@ -1278,28 +1278,30 @@ class SIMSReader(object):
         """ Internal function, reads .chk_is file, extracts background calibration. """
         fname = os.path.splitext(self.filename)[0] + '.chk_is'
         table = []
+        bg_before = []
+        bg_after = []
         with open(fname, mode='rt') as fh:
             for line in fh:
                 if line.startswith('FC Background before acq'):
-                    before = line.split(':')[1].strip().split('=')
+                    bg_before = line.split(':')[1].strip().split('=')
                 elif line.startswith('FC Background after acq'):
-                    after = line.split(':')[1].strip().split('=')
+                    bg_after = line.split(':')[1].strip().split('=')
                 elif line.startswith('|'):
                     table.append(line)
 
         # Parse analysis background
-        for n in range(0, len(before), 2):
-            det = before[n].replace('Det', 'Detector ').strip()
+        for n in range(0, len(bg_before), 2):
+            det = bg_before[n].replace('Det', 'Detector ').strip()
             try:
-                bg = float(before[n+1].strip())
+                bg = float(bg_before[n+1].strip())
             except ValueError:
                 bg = 0
             self.header['Detectors'][det]['fc background before analysis'] = bg
 
-        for n in range(0, len(after), 2):
-            det = after[n].replace('Det', 'Detector ').strip()
+        for n in range(0, len(bg_after), 2):
+            det = bg_after[n].replace('Det', 'Detector ').strip()
             try:
-                bg = float(after[n+1].strip())
+                bg = float(bg_after[n+1].strip())
             except ValueError:
                 bg = 0
             self.header['Detectors'][det]['fc background after analysis'] = bg
