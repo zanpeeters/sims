@@ -419,7 +419,7 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         bfi = mt['b field index']
         tri = mt['trolley index']
         tr = simsobj.header['BFields'][bfi]['Trolleys'][tri]
-        if tr['trolley selected'] and tr['detector'] == 'EM':
+        if tr['trolley enabled'] and tr['detector'] == 'EM':
             det = simsobj.header['Detectors'][tr['detector label']]
             EMs[spc] = {'deadtime': det['em deadtime']/1e9,  # in ns
                         'yield': det['em yield']/100,  # in %
@@ -439,7 +439,9 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
                 EMs.pop(spc)
 
     # Override deadtime values.
-    if isinstance(deadtime, (int, float)):
+    if deadtime is None:
+        pass
+    elif isinstance(deadtime, (int, float)):
         for spc in EMs.keys():
             EMs[spc]['deadtime'] = deadtime
     elif isinstance(deadtime, dict):
@@ -454,7 +456,9 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         raise TypeError(msg)
 
     # Override yield values.
-    if isinstance(emyield, (int, float)):
+    if emyield is None:
+        pass
+    elif isinstance(emyield, (int, float)):
         for spc in EMs.keys():
             EMs[spc]['yield'] = emyield
     elif isinstance(emyield, dict):
@@ -469,7 +473,9 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         raise TypeError(msg)
 
     # Override background values.
-    if isinstance(background, (int, float)):
+    if background is None:
+        pass
+    elif isinstance(background, (int, float)):
         for spc in EMs.keys():
             EMs[spc]['background'] = background
     elif isinstance(background, dict):
@@ -546,7 +552,7 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
         bfi = mt['b field index']
         tri = mt['trolley index']
         tr = simsobj.header['BFields'][bfi]['Trolleys'][tri]
-        if tr['trolley selected'] and tr['detector'] == 'FC':
+        if tr['trolley enabled'] and tr['detector'] == 'FC':
             FCs[spc] = {}
             det = simsobj.header['Detectors'][tr['detector label']]
             # Always read setup value, override if other is requested.
@@ -582,7 +588,9 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
                 FCs.pop(spc)
 
     # Override background values.
-    if isinstance(background, (float, int)):
+    if background is None:
+        pass
+    elif isinstance(background, (float, int)):
         for spc in FCs.keys():
             FCs[spc]['background'] = background
     elif isinstance(background, dict):
@@ -654,7 +662,7 @@ def _guess_fc_resistors(simsobj):
     resistors.index.name = 'Ohm'
     return resistors
 
-class JSONDateTimeEncoder(json.JSONEncoder):
+class _JSONDateTimeEncoder(json.JSONEncoder):
     """ Converts datetime objects to json format. """
     def default(self, obj):
         if isinstance(obj, (datetime.date, datetime.datetime)):
@@ -679,7 +687,7 @@ def export_header(simsobj, filename=""):
     with io.open(filename, mode='wt', encoding='utf-8') as fp:
         print(json.dumps(self.header, sort_keys=True,
                          indent=2, ensure_ascii=False,
-                         separators=(',', ': '), cls=JSONDateTimeEncoder),
+                         separators=(',', ': '), cls=_JSONDateTimeEncoder),
               file=fp)
 
 def export_matlab(simsobj, filename="", prefix='m', **kwargs):
