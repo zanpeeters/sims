@@ -5,10 +5,29 @@ from __future__ import print_function, division
 import re
 import os
 import json
-import sims
 import warnings
+import datetime
 import numpy as np
 import pandas as pd
+from skimage.feature import register_translation
+from scipy.ndimage import shift
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
+import matplotlib.pyplot as mpl
+
+__all__ = [
+    'coulomb',
+    'ions_per_amp',
+    'format_species',
+    'thumbnails',
+    'coordinates',
+    'align',
+    'em_correct',
+    'fc_correct',
+    'export_fits',
+    'export_header',
+    'export_matlab'
+]
 
 # Factor for converting A to counts/s on faraday cups.
 # Cameca uses 6.24142e18, which is incorrect rounding: 6.241509... e18
@@ -139,10 +158,6 @@ def coordinates(filelist, **kwargs):
 
         Returns a matplotlib figure instance.
     """
-    from matplotlib.patches import Rectangle
-    from matplotlib.collections import PatchCollection
-    import matplotlib.pyplot as mpl
-
     labels = kwargs.pop('labels', filelist)
 
     patches = []
@@ -321,9 +336,6 @@ def align(data, reference_frame=0, upsample_factor=10, center=True, **kwargs):
 
         Returns the aligned data and the shifts.
     """
-    from skimage.feature import register_translation
-    from scipy.ndimage import shift
-
     was_panel = False
     was_numpy = False
     if isinstance(data, pd.Panel):

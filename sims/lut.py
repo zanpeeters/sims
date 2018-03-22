@@ -16,11 +16,11 @@
 """
 import matplotlib.pyplot as mpl
 import matplotlib.colors as mpc
-import os, inspect
+import os, pkg_resources
 
-# Default directory is 'lut' alongside lut.py
-lut_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-lut_dir = os.path.join(lut_dir, 'lut')
+__all__ = ['load_cameca_lut', 'load_limage_lut']
+
+lut_dir = pkg_resources.resource_filename(__name__, 'lut')
 limage_file = os.path.join(lut_dir, 'limagecolors.tbl')
 
 def load_cameca_lut(*names, smooth=True):

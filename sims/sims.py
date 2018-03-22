@@ -49,8 +49,8 @@ except ImportError:
 # if sys.version_info.major >= 3:
 #     unicode = str
 
-from .utils import format_species
-from .transparent import TransparentOpen
+from sims.utils import format_species
+from sims.transparent import TransparentOpen
 
 __all__ = ['SIMSReader', 'SIMS']
 
