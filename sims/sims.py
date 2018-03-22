@@ -71,10 +71,11 @@ _file_types = {
     31: 'SIBC file',
     35: 'beam stability file',
     39: 'line scan image',
+    40: 'line scan, beam control',
     41: 'stage scan image',
 }
 
-_supported_file_types = [ 21, 22, 26, 27, 29, 35, 39, 41 ]
+_supported_file_types = [ 21, 22, 26, 27, 29, 35, 39, 40, 41 ]
 
 _peakcenter_sides = {
     0: 'left',
@@ -464,7 +465,7 @@ class SIMSReader(object):
         elif self.header['file type'] in (22, 41):
             # Called MaskSampleStageImage/readMaskIss in OpenMIMS
             d['original filename'], d['analysis duration'], d['scan type'], \
-                d['steps'], d['steps x'], d['steps y'], d['step size'], \
+                d['steps'], d['step size x'], d['step size y'], d['step size?'], \
                 d['step waittime'], d['frames'], d['beam blanking'], \
                 d['presputtering'], d['presputtering duration'] = \
                 unpack(self._bo + '16s 6i d 4i', hdr.read(64))
@@ -525,7 +526,7 @@ class SIMSReader(object):
                 n = 60
             else:
                 n = 10
-        elif self.header['file type'] in (22, 41):
+        elif self.header['file type'] in (22, 40, 41):
             n = 20
         else:
             n = 0
@@ -534,7 +535,7 @@ class SIMSReader(object):
         # d['mass table ptr'] = unpack(self._bo + n*'i', hdr.read(n*4))
         hdr.seek(n*4, 1)
 
-        if self.header['file type'] in (21, 22, 26, 41, 35):
+        if self.header['file type'] in (21, 22, 26, 40, 41, 35):
             hdr.seek(4, 1)  # 4 bytes unused
 
         # Mass table, dict by species label.
