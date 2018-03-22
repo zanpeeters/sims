@@ -4,6 +4,7 @@
 from __future__ import print_function, division
 import re
 import os
+import io
 import json
 import warnings
 import datetime
@@ -697,7 +698,7 @@ def export_header(simsobj, filename=""):
 
     # io is for python2 compatibility
     with io.open(filename, mode='wt', encoding='utf-8') as fp:
-        print(json.dumps(self.header, sort_keys=True,
+        print(json.dumps(simsobj.header, sort_keys=True,
                          indent=2, ensure_ascii=False,
                          separators=(',', ': '), cls=_JSONDateTimeEncoder),
               file=fp)
