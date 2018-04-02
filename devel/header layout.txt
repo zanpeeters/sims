@@ -1,0 +1,439 @@
+# int, float, bool, str, datetime, list
+
+
+Header
+|
++-analysis duration (int)
++-analysis type (str)
++-analysis version (int)
++-beam blanking (bool)
++-byte order (str)
++-comment (str)
++-data included (bool)
++-date (datetime)
++-file type (int)
++-file version (int)
++-frames (int)
++-header size (int)
++-label list (list str)
++-label list fmt (list str)
++-magnification (int)
++-mass list (list float)
++-masses (int)
++-n50large (bool)
++-original filename (str)
++-polarity (str)
++-presputtering (bool)
++-presputtering duration (int)
++-sample type (int)
++-sample x (int)
++-sample y (int)
++-sample z (int)
++-scan type (str)
++-size detector (int)
++-size type (int)
++-user name (str)
+|
++--BFields # At least 1, more if field switching
+|   |
+|   +--BField1
+|   |   |
+|   |   +-E0W offset (int)
+|   |   +-LF4 (int)
+|   |   +-Q (int)
+|   |   +-bfield (int)
+|   |   +-b field enabled (bool)
+|   |   +-counting frame time (float)
+|   |   +-frames per bfield (int)
+|   |   +-hex val (int)
+|   |   +-scanning frame time (float)
+|   |   +-time per pixel (float)
+|   |   +-time per step (float)
+|   |   +-wait time (float)
+|   |   +-wait time computed (bool)
+|   |   +-working frame time (float)
+|   |   +--Trolleys # 5 or 7 (if ns50L) real, EMBig, FCs, LD, TIC; see Detectors
+|   |       |
+|   |       +--Trolley1
+|   |       |   |
+|   |       |   +-50% width (float)
+|   |       |   +-cameca trolley index (int)
+|   |       |   +-deflection (float)
+|   |       |   +-deflection plate 1 (int)
+|   |       |   +-deflection plate 2 (int)
+|   |       |   +-detector (str)
+|   |       |   +-detector label (str)
+|   |       |   +-exit slit (int)
+|   |       |   +-focus (float)
+|   |       |   +-hmr count time (float)
+|   |       |   +-hmr points (int)
+|   |       |   +-hmr start (float)
+|   |       |   +-hmr step (int)
+|   |       |   +-label (str)
+|   |       |   +-mass (float)
+|   |       |   +-peakcenter count time (float)
+|   |       |   +-peakcenter follow (int)
+|   |       |   +-peakcenter index (int)
+|   |       |   +-peakcenter side (str)
+|   |       |   +-phd count time (float)
+|   |       |   +-phd points (int)
+|   |       |   +-phd scan repeat (int)
+|   |       |   +-phd start (int)
+|   |       |   +-phd step size (int)
+|   |       |   +-radius (float)
+|   |       |   +-real trolley (bool)
+|   |       |   +-start dac plate 1 (int)
+|   |       |   +-start dac plate 2 (int)
+|   |       |   +-trolley enabled (bool)
+|   |       |   +-trolley label (str)
+|   |       |   +-unit correction (int)
+|   |       |   +-used for E0S center (bool)
+|   |       |   +-used for baseline (bool)
+|   |       |   +-used for energy center (bool)
+|   |       |   +-used for phd scan (bool)
+|   |       |   +-used for sib center (bool)
+|   |       |
+|   |       +--Trolley2
+|   |       |   |
+|   |       .   .
+|   |
+|   +--BField2
+|   |   |
+|   .   .
+|
++--Detectors # 5 or 7 (if ns50L) real, EMBig, FCs, LD, TIC; see Trolleys
+|   |
+|   +--Detector1
+|   |   |
+|   |   +-detector (str)
+|   |   +-em background (int)
+|   |   +-em deadtime (int)
+|   |   +-em yield (float)
+|   |   +-exit slit (int)
+|   |   +-exit slit heights (list int)
+|   |   +-exit slit label (str)
+|   |   +-exit slit size (int)
+|   |   +-exit slit size label (str)
+|   |   +-exit slit widths (list int)
+|   |   +-fc background setup negative (int)
+|   |   +-fc background setup positive (int)
+|   |
+|   +--Detector2
+|   |   |
+|   .   .
+|
++--Isotopes
+|   |
+|   +-blocks (int)
+|   +-frames per block (int)
+|   +-ratios (list list str)
+|   +-ratios fmt (list str)
+|   +-ratios index (list list int)
+|   +-rejection sigma (int)
+|
++--MassTable # 1-8
+|   |
+|   +--Mass1
+|   |   |
+|   |   +-atomic number (list int)
+|   |   +-b field index (int)
+|   |   +-background corrected (bool)
+|   |   +-charge label (str)
+|   |   +-charges (int)
+|   |   +-deadtime corrected (bool)
+|   |   +-detector (int)
+|   |   +-elements (int)
+|   |   +-frame count time (float)
+|   |   +-isotope number (list int)
+|   |   +-mass (float)
+|   |   +-matrix or trace (int)
+|   |   +-numeric flag (int)
+|   |   +-numeric value (int)
+|   |   +-offset (int)
+|   |   +-stoich number (list int)
+|   |   +-trolley index (int)
+|   |   +-wait time (float)
+|   |   +-yield corrected (bool)
+|   |
+|   +--Mass2
+|   |   |
+|   .   .
+|
++--NanoSIMSHeader
+|   |
+|   +-b fields (int)
+|   +-baseline frequency (int)
+|   +-baseline measurement (int) # should be bool: baseline enabled
+|   +-baseline offset (float)
+|   +-beam blanking (int) # should be bool
+|   +-counting frame height (int)
+|   +-counting frame raster (float)
+|   +-counting frame width (int)
+|   +-counting frame x end (int)
+|   +-counting frame x start (int)
+|   +-counting frame y end (int)
+|   +-counting frame y start (int)
+|   +-detector type (int)
+|   +-electron scan (int)
+|   +-grain mode (bool)
+|   +-mode (int)
+|   +-nanosimsheader version (int)
+|   +-presputtering raster (int) # should be float: /1000
+|   +-print results (bool)
+|   +-regulation mode (bool) # should be str: Hall or NMR
+|   +-scanning frame height (int)
+|   +-scanning frame raster (float)
+|   +-scanning frame width (int)
+|   +-scanning frame x (int)
+|   +-scanning frame y (int)
+|   +-scanning mode (bool) # ?
+|   +-semigraphic mode (bool)
+|   +-stage delta x (int)
+|   +-stage delta y (int)
+|   +-working frame height (int)
+|   +-working frame raster (float)
+|   +-working frame width (int)
+|   |
+|   +--E0SCenter
+|   |   |
+|   |   +-80% width (float)
+|   |   +-E0S center enabled (bool)
+|   |   +-b field index (int)
+|   |   +-center (float)
+|   |   +-count time (float)
+|   |   +-detector (int)
+|   |   +-start (int)
+|   |   +-step size (int)
+|   |   +-steps (int)
+|   |
+|   +--EnergyCenter
+|   |   |
+|   |   +-b field index (int)
+|   |   +-center (float)
+|   |   +-count time (float)
+|   |   +-delta (float)
+|   |   +-detector (int)
+|   |   +-energy center enabled (bool)
+|   |   +-frequency (int)
+|   |   +-start (int)
+|   |   +-step size (int)
+|   |   +-wait time (int)
+|   |
+|   +--PeakCenter
+|   |   |
+|   |   +-E0P offset (int)
+|   |   +-frequency (int)
+|   |   +-peakcenter enabled (bool)
+|   |   +-start (int)
+|   |
+|   +--SibCenterHor
+|   |   |
+|   |   +-50% width (float)
+|   |   +-b field index (int)
+|   |   +-center (float)
+|   |   +-count time (float)
+|   |   +-detector (int)
+|   |   +-sib center enabled (bool)
+|   |   +-start (int)
+|   |   +-step size (int)
+|   |
+|   +--SibCenterVert
+|       |
+|       +-50% width (float)
+|       +-b field index (int)
+|       +-center (float)
+|       +-count time (float)
+|       +-detector (int)
+|       +-sib center enabled (bool)
+|       +-start (int)
+|       +-step size (int)
+|   
++--Presets # The actual contents of the presets is variable: items can be added or removed.
+|   |
+|   +--Measure
+|   |   |
+|   |   +--Lenses
+|   |   |   |
+|   |   |   +-C0x (int)
+|   |   |   +-C0y (int)
+|   |   |   +-C1x (int)
+|   |   |   +-C1y (int)
+|   |   |   +-L0 (int)
+|   |   |   +-L1 (int)
+|   |   |   +-LCs (int)
+|   |   |   +-calibration date (datetime)
+|   |   |   +-enabled (bool)
+|   |   |   +-isf filename (str)
+|   |   |   +-parameters (int)
+|   |   |   +-preset name (str)
+|   |   |
+|   |   +--Slits
+|   |       |
+|   |       +-AS Cmd Pos (int)
+|   |       +-D1 Cmd Pos (int)
+|   |       +-calibration date (datetime)
+|   |       +-enabled (bool)
+|   |       +-isf filename (str)
+|   |       +-parameters (int)
+|   |       +-preset name (str)
+|   |
+|   +--Presputter
+|       |
+|       +--Lenses
+|       |   |
+|       |   +-C0x (int)
+|       |   +-C0y (int)
+|       |   +-C1x (int)
+|       |   +-C1y (int)
+|       |   +-L0 (int)
+|       |   +-L1 (int)
+|       |   +-LCs (int)
+|       |   +-calibration date (datetime)
+|       |   +-enabled (bool)
+|       |   +-isf filename (str)
+|       |   +-parameters (int)
+|       |   +-preset name (str)
+|       |
+|       +--Slits
+|           |
+|           +-AS Cmd Pos (int)
+|           +-D1 Cmd Pos (int)
+|           +-calibration date (datetime)
+|           +-enabled (bool)
+|           +-isf filename (str)
+|           +-parameters (int)
+|           +-preset name (str)
+|
++--PrimaryBeam
+|   |
+|   +-D0 (int)
+|   +-D0 widths (list int)
+|   +-D1 (int)
+|   +-D1 widths (list int)
+|   +-Dcs (int)
+|   +-Dcs widths (list int)
+|   +-Dduo (int)
+|   +-Dduo widths (list int)
+|   +-E0P (float)
+|   +-L0 (int)
+|   +-L1 (int)
+|   +-Lduo (int)
+|   +-current end (int)
+|   +-current start (int)
+|   +-hv cesium (int)
+|   +-hv duo (int)
+|   +-oct45 (float)
+|   +-oct90 (float)
+|   +-pressure analysis chamber (str)
+|   +-raster (float)
+|   +-source (str) # check!
+|
++--SIMSHeader
+|   |
+|   +-eps b field (int)
+|   +-eps centering enabled (bool)
+|   +-eps central energy (int)
+|   +-eps enabled (bool)
+|   +-eps ref mass tube hv (float)
+|   +-eps ref mass tube hv max var (float)
+|   +-matrix (str)
+|   +-method name (str)
+|   +-original filename (str)
+|   +-sample name (str)
+|   +-sample rotation (bool)
+|   +-sample rotation speed (int)
+|   +-sample rotation synced (bool)
+|   +-sigref auto (bool)
+|   +-sigref beam on time (int)
+|   +-sigref delta (int)
+|   +-sigref measure time (int)
+|   +-sigref points (int)
+|   +-sigref scan time (float)
+|   +-simsheader version (int)
+|   +-user name (str)
+|   |
+|   +--EPSCentralSpecies
+|   |   |
+|   |   +-atomic number (list int)
+|   |   +-charge label (str)
+|   |   +-charges (int)
+|   |   +-elements (int)
+|   |   +-isotope number (list int)
+|   |   +-label (str)
+|   |   +-numeric flag (int)
+|   |   +-numeric value (int)
+|   |   +-stoich number (list int)
+|   |
+|   +--EPSReferenceSpecies
+|       |
+|       +-atomic number (list int)
+|       +-charge label (str)
+|       +-charges (int)
+|       +-elements (int)
+|       +-isotope number (list int)
+|       +-label (str)
+|       +-numeric flag (int)
+|       +-numeric value (int)
+|       +-stoich number (list int)
+|
++--SecondaryBeam
+    |
+    +-AS (int)
+    +-AS heights (list int)
+    +-AS widths (list int)
+    +-E0S (float)
+    +-E0W (float)
+    +-ES (int)
+    +-ES heights (list int)
+    +-ES widths (list int)
+    +-EnS (float)
+    +-EnS width (float)
+    +-pressure multicollection chamber (str)
+ 
+
+
+# These three are known, but not used in nanoSIMS and therefore untested
+|
++--AutoCal
+|   |
+|   +-autocal enabled (bool)
+|   +-begin (int)
+|   +-duration (int)
+|   +-label (str)
+|
++--HVControl
+|   |
+|   +-bandpass width (int)
+|   +-begin (int)
+|   +-count time (float)
+|   +-duration (int)
+|   +-hvcontrol enabled (bool)
+|   +-label (str)
+|   +-limit high (float)
+|   +-limit low (float)
+|   +-step (float)
+|
++--SigRef
+    |
+    +-detector (int)
+    +-offset (int)
+    +-quantity (int)
+    +-sigref enabled (bool)
+    |
+    +--Species
+        |
+        +-atomic number (list int)
+        +-charge label (str)
+        +-charges (int)
+        +-elements (int)
+        +-isotope number (list int)
+        +-label (str)
+        +-numeric flag (int)
+        +-numeric value (int)
+        +-stoich number (list int)
+
+
+# These three are completely unknown
++--Champslist
++--Offsetlist
++--Polylist
