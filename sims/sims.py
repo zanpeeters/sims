@@ -18,9 +18,14 @@ import tarfile
 from struct import unpack
 import numpy as np
 
-# Return data in pandas 4D frame, if available, numpy array otherwise
+# Return data in pandas 4D frame, if available and pandas version supports
+# (Panel4d was depreciated in 0.19.0), numpy array otherwise
 try:
     import pandas as pd
+    # Get version as string ('X.XX.X') and split into integers
+    pandas_version = [int(v) for v in pd.__version__.split('.')]
+    if pandas_version[0] > 0 or pandas_version[1] > 18:
+        pd = None
 except ImportError:
     pd = None
 
