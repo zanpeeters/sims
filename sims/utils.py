@@ -394,11 +394,10 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         Usage: sims.utils.em_correct(s)
 
         Applies background, yield, and deadtime correction to all species
-        in the data that were recorded with electron multipliers (EMs). By
-        default, all correction factors are read from the header. To supply
-        other values, give the deadtime (in seconds), emyield (in fraction,
-        not %), or background (in same units as data, counts or counts/s)
-        as keyword arguments.
+        recorded with electron multipliers (EMs). By default, all correction
+        factors are read from the header. To supply alternative values, give
+        the deadtime (in seconds), emyield (in fraction, not %), or background
+        (in same units as data, counts or counts/s) as keyword arguments.
 
         For background it is possible to set up a "baseline" measurement,
         although this is more commonly done for FC detectors. These values
