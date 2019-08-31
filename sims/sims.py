@@ -176,7 +176,7 @@ class SIMSReader(object):
         # From OpenMIMS documentation I know that PolyList is as list of
         # Species dicts, but don't know how to read ChampsList or OffsetList.
         if polylist_pos < 0:
-            if self.header['analysis type'].endswith('RTI') \
+            if self.header['analysis type'].endswith('rti') \
             or self.header['file type'] == 35:
                 # Case 1: No PL marker, so far only found for Real Time Images
                 # or beam stability file
