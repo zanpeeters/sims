@@ -39,6 +39,7 @@ _stage_scan_types = {
 _file_types = {
     21: 'depth profile',
     22: 'line scan, stage control',
+    25: 'energy scan',
     26: 'isotope image',
     27: 'image',
     29: 'grain mode image',
