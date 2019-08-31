@@ -131,9 +131,10 @@ def format_species(name, mhchem=False, mathrm=False):
     return begin + body + end
 
 
-def thumbnails(data, cycle=0, mass=None, labels=None):
+def thumbnails(simsobj, cycle=0, mass=None, labels=None):
     """ Generate a thumbnail sheet. """
-    if not mass: mass = range(data.shape[0])
+    if not mass:
+        mass = range(simsobj.data.shape[0])
     mass = list(mass)
 
     row = int(np.floor(np.sqrt(len(mass))))
@@ -153,8 +154,9 @@ def thumbnails(data, cycle=0, mass=None, labels=None):
     for m, n in zip(mass, range(len(mass))):
             ax = mpl.subplot(row, col, n+1)
             ax.axis('off')
-            ax.imshow(data[m, cycle])
-            if labels: axim.title(labels[n])
+            ax.imshow(simsobj.data.loc[m, cycle])
+            if labels:
+                ax.title(labels[n])
             # mpl.colorbar()
 
     mpl.show()
@@ -239,11 +241,8 @@ def coordinates(filelist, **kwargs):
     return fig
 
 
-def export_fits(data, filename, extend=False, **kwargs):
-    """ Export data to a FITS file.
-
-        Data can be pandas data structure or numpy ndarray.
-        Filename is the filename the FITS will will be saved to.
+def export_fits(simsobj, filename, extend=False, **kwargs):
+    """ Export a SIMS object to a FITS file.
 
         By default, the data structure will be saved as is, i.e.
         a 3D data cube will be saved as such. Set extend=True to
