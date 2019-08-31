@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Python module to read Cameca (nano)SIMS data files. """
-from __future__ import print_function, division, absolute_import
-
 import io
-import sys
 import os
 import re
 import datetime
@@ -15,39 +12,16 @@ import gzip
 import bz2
 import zipfile
 import tarfile
+import lzma
 from struct import unpack
 import numpy as np
-
-# Return data in pandas 4D frame, if available, numpy array otherwise
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-
-# available in Python 3.3 and higher
-try:
-    import lzma
-except ImportError:
-    lzma = None
+import xarray
 
 # py7zlib is needed for 7z, cannot handle xz/lzma archives compressed by xz
 try:
     import py7zlib
 except ImportError:
     py7zlib = None
-
-# Local import py2 or 3
-# try:
-#     from .info import *
-#     from .utils import format_species
-#     from .transparent import TransparentOpen
-# except SystemError:
-#     from info import *
-#     from utils import format_species
-#     from transparent import TransparentOpen
-#
-# if sys.version_info.major >= 3:
-#     unicode = str
 
 from sims.utils import format_species
 from sims.transparent import TransparentOpen
@@ -1198,15 +1172,19 @@ class SIMSReader(object):
 
         self.fh.seek(self.header['header size'])
 
-        compressedfiles = (gzip.GzipFile, bz2.BZ2File, tarfile.ExFileObject, io.BytesIO)
-        if lzma:
-            compressedfiles += (lzma.LZMAFile,)
+        compressedfiles = (
+            gzip.GzipFile,
+            bz2.BZ2File,
+            tarfile.ExFileObject,
+            lzma.LZMAFile,
+            io.BytesIO
+        )
 
         # fromfile is about 2x faster than frombuffer(fh.read())
         if isinstance(self.fh, compressedfiles):
-            self.data = np.fromstring(self.fh.read(), dtype=dt).reshape(shape)
+            data = np.frombuffer(self.fh.read(), dtype=dt).reshape(shape)
         else:
-            self.data = np.fromfile(self.fh, dtype=dt).reshape(shape)
+            data = np.fromfile(self.fh, dtype=dt).reshape(shape)
 
         # We want to have a cube of contiguous data (stacked images) for each
         # mass. Swap axes 0 and 1. Returns a view, so make full copy to make

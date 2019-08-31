@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Tools and utilities for the sims module. """
-from __future__ import print_function, division
+
 import re
 import os
 import io
@@ -16,6 +16,17 @@ from skimage.feature import register_translation
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as mpl
+
+fits = None
+try:
+    from astropy.io import fits
+except ImportError:
+    pass
+
+try:
+    import pyfits as fits
+except ImportError:
+    pass
 
 __all__ = [
     'coulomb',
@@ -244,17 +255,6 @@ def export_fits(data, filename, extend=False, **kwargs):
         Additional arguments are sent to fits.writeto(), see
         astropy.io.fits for more info.
     """
-    fits = None
-    try:
-        from astropy.io import fits
-    except ImportError:
-        pass
-
-    try:
-        import pyfits as fits
-    except ImportError:
-        pass
-
     if not fits:
         msg = 'You need to install either pyfits or astropy to be able to export FITS files.'
         raise ImportError(msg)
@@ -695,8 +695,7 @@ def export_header(simsobj, filename=""):
     if not filename:
         filename = simsobj.filename + '.txt'
 
-    # io is for python2 compatibility
-    with io.open(filename, mode='wt', encoding='utf-8') as fp:
+    with open(filename, mode='wt', encoding='utf-8') as fp:
         print(json.dumps(simsobj.header, sort_keys=True,
                          indent=2, ensure_ascii=False,
                          separators=(',', ': '), cls=_JSONDateTimeEncoder),
@@ -719,13 +718,6 @@ def export_matlab(simsobj, filename="", prefix='m', **kwargs):
         prefixed with 'prefix' (default 'm'), because MatLab doesn't allow
         variable names starting with a number.
     """
-    try:
-        import scipy.io
-    except ImportError:
-        msg = "Scipy not found on your system, MatLab export not available."
-        warnings.warn(msg)
-        return
-
     if not filename:
         filename = simsobj.filename
     if 'do_compression' not in kwargs.keys():
