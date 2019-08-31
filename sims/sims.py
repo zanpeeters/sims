@@ -50,7 +50,7 @@ _file_types = {
     41: 'stage scan image',
 }
 
-_supported_file_types = [ 21, 22, 26, 27, 29, 35, 39, 40, 41 ]
+_supported_file_types = { 21, 22, 26, 27, 29, 35, 39, 40, 41 }
 
 _peakcenter_sides = {
     0: 'left',
@@ -112,11 +112,10 @@ class SIMSReader(object):
         """
         self.fh.seek(0)
         snip = self.fh.read(12)
-        # 256 is an arbitrarily chosen limit, file types are in the 10s.
-        if unpack('<i', snip[4:8])[0] < 256:
+        if unpack('<i', snip[4:8])[0] <= max(_supported_file_types):
             self.header['byte order'] = '<'
             self._bo = '<'
-        elif unpack('>i', snip[4:8])[0] < 256:
+        elif unpack('>i', snip[4:8])[0] <= max(_supported_file_types):
             self.header['byte order'] = '>'
             self._bo = '>'
         else:
