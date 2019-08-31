@@ -293,16 +293,18 @@ class SIMSReader(object):
                 self.header['polarity'] = '-'
 
             # Combine pixel size from NanoSIMSHeader and raster from PrimaryBeam
+            # Prevent ZeroDivisionError if undefined
+            wfw = self.header['NanoSIMSHeader']['working frame width']
+            if not wfw:
+                wfw = 1
             self.header['NanoSIMSHeader']['working frame raster'] = \
                 self.header['PrimaryBeam']['raster']
             self.header['NanoSIMSHeader']['scanning frame raster'] = \
                 self.header['NanoSIMSHeader']['working frame raster'] * \
-                self.header['NanoSIMSHeader']['scanning frame width'] / \
-                self.header['NanoSIMSHeader']['working frame width']
+                self.header['NanoSIMSHeader']['scanning frame width'] / wfw
             self.header['NanoSIMSHeader']['counting frame raster'] = \
                 self.header['NanoSIMSHeader']['working frame raster'] * \
-                self.header['NanoSIMSHeader']['counting frame width'] / \
-                self.header['NanoSIMSHeader']['working frame width']
+                self.header['NanoSIMSHeader']['counting frame width'] / wfw
 
             # Header for non-nano SIMS
             magic = unpack(self._bo + 'i', hdr.read(4))[0]
