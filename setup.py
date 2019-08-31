@@ -39,11 +39,13 @@ setup(
 
     install_requires = [
         'matplotlib',
-        'pandas',
-        'scipy'
+        'scikit-image',
+        'scipy',
+        'xarray'
     ],
 
     packages = find_packages(),
     package_data = {'sims': ['lut/*']},
+    test_suite = 'test',
     zip_safe = False
 )

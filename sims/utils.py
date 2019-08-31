@@ -9,9 +9,10 @@ import json
 import warnings
 import datetime
 import numpy as np
-import pandas as pd
-from skimage.feature import register_translation
+import xarray
 from scipy.ndimage import shift
+from scipy.io import savemat
+from skimage.feature import register_translation
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as mpl
@@ -258,9 +259,7 @@ def export_fits(data, filename, extend=False, **kwargs):
         msg = 'You need to install either pyfits or astropy to be able to export FITS files.'
         raise ImportError(msg)
 
-    if hasattr(data, 'values'):
-        # any of the pandas data structures; extract ndarray
-        data = data.values
+    data = simsobj.data
 
     # FITS supports the following data formats, given as BITPIX in header
     # BITPIX    format
@@ -311,83 +310,84 @@ def export_fits(data, filename, extend=False, **kwargs):
         hdu.writeto(filename, **kwargs)
 
 
-def align(data, reference_frame=0, upsample_factor=10, center=True, **kwargs):
+def align(simsobj, reference_species='', reference_frame=0,
+          upsample_factor=10, center=True):
     """ Perform image alignment on data.
 
         usage: aligned_data, shifts = align(data)
 
         Performs sub-pixel image translation registration (image alignment)
-        on the data. Each frame of each element is registered seperately.
-        skimage.features.register_translation() is used for obtaining the
-        shifts and scipy.ndimage.shift() is used to apply the shifts to the
-        data. See the documentation of those functions for more information;
-        keyword arguments are passed through. By default, the upsample_factor
-        is set to 10.
+        on the data. skimage.features.register_translation() is used for
+        calculating the shifts and scipy.ndimage.shift() is used to apply
+        the shifts to the data. See the documentation of those functions
+        for more information.
 
-        The data can be given as a pandas Panel4D (sims default) or Panel
-        (a single element), or as a numpy array.
+        All species are aligned together. The biggest source of drift is
+        stage drift, which is independent of the species. This makes it
+        possible to align images with weak signal, by assuming that the
+        drift is the same as the parent species with higher signal, e.g.
+        a 13C image is aligned based on the shifts calculated from the 12C
+        image. The signal in an 13C image is usually too low to calculate
+        shifts accurately.
+
+        The reference species is the species to which all other images in
+        the data are adjusted. By default this is the first species in
+        the list.
 
         The reference frame is the frame to which all other images in the
-        stack are adjusted. By default this is 0, the first frame. A list
-        may also be given, in which case a different reference frame for
-        each element can be set.
+        stack are adjusted. By default this is 0, the first frame.
+
+        The upsample factor is the amount in fraction of a pixel by which
+        the images are aligned, i.e. upsample_factor=10 means 1/10th of a pixel.
 
         If center=True (the default), the shifts are centered to the median
         of the shifts to minimize blank edges.
 
         Returns the aligned data and the shifts.
     """
-    was_panel = False
-    was_numpy = False
-    if isinstance(data, pd.Panel):
-        data = pd.Panel4D(data=data.values, labels=['x'], items=data.items,
-                          major_axis=data.major_axis, minor_axis=data.minor_axis)
-        was_panel = True
-    elif isinstance(data, np.ndarray):
-        if data.ndim == 3:
-            data = pd.Panel4D(data=[data])
-        elif data.ndim == 4:
-            data = pd.Panel4D(data=data)
-        else:
-            msg = 'data must be 3 dimensional (one stack of 2D images), or '
-            msg += '4 dimentional (multiple stacks of 2D images).'
-            raise TypeError(msg)
-        was_numpy = True
-
-    if isinstance(reference_frame, int):
-        reference_frame = [reference_frame] * data.shape[0]
-
-    # Calculate shifts
-    shifts = []
-    for lbl, ref in zip(data.labels, reference_frame):
-        shifts_per_lbl = []
-        for lyr in data.loc[lbl]:
-            sh = register_translation(data.loc[lbl, ref],
-                                      data.loc[lbl, lyr],
-                                      upsample_factor=upsample_factor)[0]
-            shifts_per_lbl.append(sh)
-        shifts.append(np.vstack(shifts_per_lbl))
-    shifts = pd.Panel(shifts, items=data.labels, minor_axis=['y', 'x'])
-
-    # Center shifts
-    if center:
-        xmedian = shifts.loc[:,:,'x'].median()
-        ymedian = shifts.loc[:,:,'y'].median()
-        shifts.loc[:,:,'x'] += xmedian
-        shifts.loc[:,:,'y'] += ymedian
-
-    # Apply shifts to data
-    shifted = pd.Panel4D(np.zeros(data.shape), labels=data.labels)
-    for lbl in data.labels:
-        for frm in data.items:
-            shifted.loc[lbl, frm] = shift(data.loc[lbl, frm],
-                                          shifts.loc[lbl, frm])
-    if was_panel:
-        return (shifted['x'], shifts['x'])
-    elif was_numpy:
-        return (shifted.values.squeeze(), shifts.values.squeeze())
+    idx = tuple(simsobj.data.indexes['species'])
+    if not reference_species:
+        reference_species = 0
+        refname = idx[0]
+    elif isinstance(reference_species, str):
+        refname = reference_species
+        reference_species = idx.index(reference_species)
     else:
-        return (shifted, shifts)
+        refname = idx[reference_species]
+
+    data = simsobj.data[reference_species]
+    shifts = []
+    for n, frame in enumerate(data):
+        if n == reference_frame:
+            shifts.append(np.zeros(2))
+            continue
+        sh = register_translation(data[reference_frame], frame,
+                                  upsample_factor=upsample_factor, return_error=False)
+        shifts.append(sh)
+    shifts = xarray.DataArray(shifts,
+                              dims=('frame', 'shift'),
+                              attrs={'reference species': refname,
+                                     'reference frame': reference_frame,
+                                     'unit': 'pixels'})
+
+    if center:
+        ymedian = shifts.loc[:,0].median()
+        xmedian = shifts.loc[:,1].median()
+        shifts.loc[:,0] += ymedian
+        shifts.loc[:,1] += xmedian
+
+    shifted = []
+    for block in simsobj.data:
+        shifted_block = []
+        for dframe, sframe in zip(block, shifts):
+            shifted_block.append(shift(dframe, sframe))
+        shifted.append(shifted_block)
+    shifted = xarray.DataArray(shifted,
+                               dims=simsobj.data.dims,
+                               coords=simsobj.data.coords,
+                               attrs=simsobj.data.attrs)
+
+    return shifted, shifts
 
 def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=None):
     """ Correct data recorded with EMs for several factors.
@@ -508,13 +508,13 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
 
     for spc, dct in EMs.items():
         if not simsobj.header['MassTable'][spc]['background corrected']:
-            simsobj.data[spc] -= dct['background']
+            simsobj.data.loc[spc] -= dct['background']
             simsobj.header['MassTable'][spc]['background corrected'] = True
         if not simsobj.header['MassTable'][spc]['yield corrected']:
-            simsobj.data[spc] *= dct['yield']
+            simsobj.data.loc[spc] *= dct['yield']
             simsobj.header['MassTable'][spc]['yield corrected'] = True
         if not simsobj.header['MassTable'][spc]['deadtime corrected']:
-            simsobj.data[spc] = simsobj.data[spc].div(1 - dct['deadtime']*simsobj.data[spc])
+            simsobj.data.loc[spc] /= (1 - dct['deadtime']*simsobj.data.loc[spc])
             simsobj.header['MassTable'][spc]['deadtime corrected'] = True
 
 def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=None):
@@ -552,7 +552,7 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
 
         By default, all FC-recorded species in the data will be corrected.
         It is possible to limit the data correction to only a few species
-        by specifying the species keyword with a list of labels The data
+        by specifying the species keyword with a list of labels. The data
         of all species not in the list will not be altered.
 
         This adjusts the data in the simsobj. It will also set keywords in the
@@ -623,8 +623,8 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
     # Resistor values
     if not resistor:
         resistor = _guess_fc_resistors(simsobj)
-        for spc in resistor.index:
-            FCs[spc]['resistor'] = resistor[spc]
+        for spc in resistor.coords['species'].values:
+            FCs[spc]['resistor'] = resistor.loc[spc]
     elif isinstance(resistor, (float, int)):
         for spc in FCs.keys():
             FCs[spc]['resistor'] = resistor
@@ -641,20 +641,19 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
 
     for spc, dct in FCs.items():
         if not simsobj.header['MassTable'][spc]['background corrected']:
-            simsobj.data[spc] -= dct['background']
+            simsobj.data.loc[spc] -= dct['background']
             simsobj.header['MassTable'][spc]['background corrected'] = True
             # 1e5 is the magic factor to go from "cps",
             # which is aparently 0.01 mV/s, to V/s.
-            simsobj.data[spc] *= ions_per_amp/(1e5 * dct['resistor'])
+            simsobj.data.loc[spc] *= ions_per_amp/(1e5 * dct['resistor'])
 
 def _guess_fc_resistors(simsobj):
     """ Internal function; guess FC resistor value from raw and
-        Cameca-corrected data. Returns a pandas Series with
-        species labels as index.
+        Cameca-corrected data. Returns a xarray.DataArray with
+        species labels as coordinates.
     """
     sp = []
     bg = []
-    ct = []
     for species, mt in simsobj.header['MassTable'].items():
         bfi = mt['b field index']
         tri = mt['trolley index']
@@ -667,12 +666,12 @@ def _guess_fc_resistors(simsobj):
             else:
                 bg.append(simsobj.header['Detectors'][dt]['fc background setup negative'])
 
-    data = simsobj.data[sp].mean()
-    corr = simsobj._data_corr[sp].mean()
+    data = simsobj.data.loc[sp].mean(dim='frame')
+    corr = simsobj._data_corr.loc[sp].mean(dim='frame')
     resistors = (data - bg) * ions_per_amp / (corr * 1e5)
     resistors = np.log10(resistors).round()
     resistors = 10**resistors
-    resistors.index.name = 'Ohm'
+    resistors.attrs['unit'] = 'Ohm'
     return resistors
 
 class _JSONDateTimeEncoder(json.JSONEncoder):

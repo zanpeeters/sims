@@ -381,29 +381,24 @@ class SIMSReader(object):
             self.header['Image'] = self._image_hdr(hdr)
 
         # Done reading header. Check for and read external files for extra info.
-        # if os.path.exists(os.path.splitext(self.filename)[0] + '.chk_is'):
-        # self._read_chk_is()
+        if os.path.exists(os.path.splitext(self.filename)[0] + '.chk_is'):
+            self._read_chk_is()
 
     def read_data(self):
         """ Read the image data.
 
             Usage: s.read_data()
 
-            Reads all the image data from the file object in s.fh. The data is
-            stored in s.data. The image header must be read before data can be read.
+            Reads all the data from the file object in s.fh. The data is
+            stored in s.data. The file header must be read before data can be read.
 
-            Image data are stored as a pandas Panel4D object with species on the
-            'labels' axis, frames on the 'items' axis, rows (stage X-axis) on the
-            'major' axis, and columns (stage Y-axis) on the 'minor' axis. If pandas
-            is not avaible, a Numpy array with 4 dimensions is stored: species, frame,
-            row, column.
+            Data are stored as a xarray DataArray. Image data have coordinates: species,
+            frames, y, and x. s.data.attrs['unit'] holds the unit of the data, which
+            is either 'counts' or 'counts/s'.
 
-            Isotope data are stored as a pandas DataFrame with frame number as index
-            and species labels as column headers. If pandas is not available, a numpy
-            array is stored. Data read from the .is file were corrected and converted
-            by the Cameca software during the measurement. These data are stored as
-            s._data_corr. If a .is_txt file is present, then the raw data are read
-            from the .is_txt file and stored as s.data in counts/s.
+            Isotope data contain the uncorrected, raw data, read from the .is_txt file
+            (if available). The corrected data (corrections done during measurement),
+            are read from the .is file and stored under s._data_corr.
         """
         if not self.header['data included']:
             pass
@@ -1207,6 +1202,7 @@ class SIMSReader(object):
         if lzma:
             compressedfiles += (lzma.LZMAFile,)
 
+        # fromfile is about 2x faster than frombuffer(fh.read())
         if isinstance(self.fh, compressedfiles):
             self.data = np.fromstring(self.fh.read(), dtype=dt).reshape(shape)
         else:
@@ -1215,14 +1211,12 @@ class SIMSReader(object):
         # We want to have a cube of contiguous data (stacked images) for each
         # mass. Swap axes 0 and 1. Returns a view, so make full copy to make
         # data access faster.
-        self.data = self.data.swapaxes(0, 1).copy()
+        data = data.swapaxes(0, 1).copy()
 
-        if pd:
-            self.data = pd.Panel4D(self.data, labels=self.header['label list'])
-            self.data.labels.name = 'species'
-            self.data.items.name = 'frame'
-            self.data.major_axis.name = 'y'
-            self.data.minor_axis.name = 'x'
+        self.data = xarray.DataArray(data,
+            dims=('species', 'frame', 'y', 'x'),
+            coords={'species': ('species', list(self.header['label list']))},
+            attrs={'unit': 'counts'})
 
     def _isotope_data(self):
         """ Internal function; read data from .is or .dp file. """
@@ -1243,16 +1237,13 @@ class SIMSReader(object):
             d = np.fromfile(self.fh, dtype=self._bo+'f8', count=2*points).reshape(2, points)
             data.append(d[1])
 
-        if pd:
-            self._data_corr = pd.DataFrame(data, index=self.header['label list']).T
-            self._data_corr.index.name = 'frame'
-            self._data_corr.columns.name = 'counts/s'
-        else:
-            self._data_corr = np.vstack(data)
+        self._data_corr = xarray.DataArray(data,
+            dims=('species', 'frame'),
+            coords={'species': ('species', list(self.header['label list']))},
+            attrs={'unit': 'counts/s'})
 
     def _isotope_txt_data(self):
         """ Internal function; read data from .is_txt or .dp_txt file. """
-        txt = None
         with open(self.filename + '_txt', mode='rt') as fh:
             txt = fh.readlines()
 
@@ -1268,12 +1259,10 @@ class SIMSReader(object):
                 l += 2 + frames
             l += 1
 
-        if pd:
-            self.data = pd.DataFrame(data, index=self.header['label list']).T
-            self.data.index.name = 'frame'
-            self.data.columns.name = 'counts/s'
-        else:
-            self.data = np.vstack(data)
+        self.data = xarray.DataArray(data,
+            dims=('species', 'frame'),
+            coords={'species': ('species', list(self.header['label list']))},
+            attrs={'unit': 'counts/s'})
 
     def _read_chk_is(self):
         """ Internal function, reads .chk_is file, extracts background calibration. """
@@ -1311,41 +1300,39 @@ class SIMSReader(object):
         if table:
             background = table[0].strip().strip('|').split('|')
             background = [float(b.strip()) for b in background[1:]]
-            idx = table[2].strip().strip('|').split('|')
-            idx = [int(i.strip('Mas# ')) for i in idx[2:]]
-            species = [self.header['label list'][i-1] for i in idx]
-            baseline = dict(zip(species, background))
-
-            for spc, mt in self.header['MassTable'].items():
-                if spc in baseline.keys():
-                    bfi = mt['b field index']
-                    tri = mt['trolley index']
-                    tr = self.header['BFields'][bfi]['Trolleys'][tri]
-                    if tr['detector'] == 'EM':
-                        tr['em background baseline'] = baseline[spc]
-                    elif tr['detector'] == 'FC':
-                        tr['fc background baseline'] = baseline[spc]
+            detectors = table[2].strip().strip('|').split('|')
+            detectors = [i.strip().replace('Mass#', 'Detector ') for i in detectors[2:]]
+            for det, bg in zip(detectors, background):
+                detdict = self.header['Detectors'][det]
+                key = '{} background baseline'.format(detdict['detector'].lower())
+                detdict[key] = bg
 
     def _beamstability_data(self):
         """ Internal function; read data in .bs beam stability file."""
         traces = unpack(self._bo + 'i', self.fh.read(4))[0]
-        time = []
+        time = None
         data = []
+        maxpoints = 0
         for t in range(traces):
             points = unpack(self._bo + 'i', self.fh.read(4))[0]
             d = np.fromfile(self.fh, dtype=self._bo+'f8', count=2*points).reshape(2, points)
-            time = d[0]
             data.append(d[1])
+            if points > maxpoints:
+                time = d[0]
+                maxpoints = points
 
-        if pd:
-            self.data = pd.DataFrame(data).T
-            self.data.index = time
-            self.data.index.name = 'seconds'
-            self.data.columns = self.header['label list']
-            self.data.columns.name = 'counts/s'
-        else:
-            self._data_corr = np.vstack(time, data)
+        for d in range(len(data)):
+            pad_width = maxpoints - data[d].shape[0]
+            data[d] = np.pad(data[d], (0, pad_width), 'constant')
 
+        self.data = xarray.DataArray(data, dims=('species', 'time'),
+            coords={
+             'species': ('species', list(self.header['label list'])),
+             'time': ('time', time, {'unit': 's'})
+            },
+            attrs={
+             'unit': 'counts/s'
+            })
 
     def _cleanup_string(self, bytes):
         """ Internal function; cuts off bytes at first null-byte,
@@ -1403,8 +1390,7 @@ class SIMS(SIMSReader, TransparentOpen):
             Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
 
             Header information is stored as a nested Python dict in SIMS.header,
-            while data is stored in SIMS.data as a pandas.Panel4D object if
-            pandas is installed or a numpy ndarray otherwise.
+            while data is stored in SIMS.data as a xarray DataArray.
 
             This class can open Cameca (nano)SIMS files and transparently supports
             compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and opening from
