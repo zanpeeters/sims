@@ -1,0 +1,29 @@
+		ASU \ ISOTOPES \ Sample : R1 
+
+						05.12.17 14:31
+Stage Position   : x=16970  um  y=3648   um  z=4500   um
+Raw data file    : D:\Cameca NanoSIMS Data\Data\ZiLiang Jin\2017-12 Itokawa\is01 R1 KH03-27 01.is
+Block number     : 1
+Meas. per block  : 100
+Rejection(sigma) : 2
+Slit Preset : None
+Lens Preset : None
+Pre Sputtering Time (s) : 0.0
+Scanning On : Frame:1,1-128,128 / Blanking:36.2% / Raster:5.0um
+Tuning Mode: Multicollection
+Regulation Mode: NMR
+Check every (fr.): 0
+Secondary Ion Beam Centering : OFF / during Acq : OFF
+E0S Centering : OFF / during Acq : OFF
+
+Primary Current before acq :   23234 pA / after acq :   22846 pA
+
+
+Mass# Species        Mass  Det.   Tc(s)   BField    Radius  Peak# RefPeak# Method
+   1  1H             1.006 Tr1    5.929   776.939   166.216                                
+   2  2H             2.004 Tr2    5.929   776.939   234.642                                
+   3  12C           12.005 Tr3    5.929   776.939   574.257                                
+   4  16O           16.071 Tr5    5.929   776.939   664.433                                
+   5  16O 1H        17.075 Tr6    5.929   776.939   684.868                                
+
+
