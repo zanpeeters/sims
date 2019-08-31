@@ -1253,25 +1253,30 @@ class SIMSReader(object):
         with open(fname, mode='rt') as fh:
             for line in fh:
                 if line.startswith('FC Background before acq'):
-                    bg_before = line.split(':')[1].strip().split('=')
+                    bg_before = line.split(':')[1].strip().split()
                 elif line.startswith('FC Background after acq'):
-                    bg_after = line.split(':')[1].strip().split('=')
+                    bg_after = line.split(':')[1].strip().split()
                 elif line.startswith('|'):
                     table.append(line)
 
         # Parse analysis background
-        for n in range(0, len(bg_before), 2):
-            det = bg_before[n].replace('Det', 'Detector ').strip()
+        det = ''
+        for part in bg_before:
+            if 'Det' in part:
+                det = part.replace('Det', 'Detector ').strip('= ')
+                continue
             try:
-                bg = float(bg_before[n+1].strip())
+                bg = float(part.strip())
             except ValueError:
                 bg = 0
             self.header['Detectors'][det]['fc background before analysis'] = bg
 
-        for n in range(0, len(bg_after), 2):
-            det = bg_after[n].replace('Det', 'Detector ').strip()
+        for part in bg_after:
+            if 'Det' in part:
+                det = part.replace('Det', 'Detector ').strip('= ')
+                continue
             try:
-                bg = float(bg_after[n+1].strip())
+                bg = float(part.strip())
             except ValueError:
                 bg = 0
             self.header['Detectors'][det]['fc background after analysis'] = bg
