@@ -1,23 +1,25 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """ Python module to read Cameca (nano)SIMS data files. """
-import io
-import os
-import re
-import datetime
-import warnings
+
+import bz2
 import collections
 import copy
+import datetime
+import enum
 import gzip
-import bz2
-import zipfile
-import tarfile
+import io
 import lzma
-from struct import unpack
 import numpy as np
+import os
+import re
+import tarfile
+import warnings
 import xarray
+import zipfile
+from struct import unpack
 
-# py7zlib is needed for 7z, cannot handle xz/lzma archives compressed by xz
+# py7zlib is needed for 7z
 try:
     import py7zlib
 except ImportError:
