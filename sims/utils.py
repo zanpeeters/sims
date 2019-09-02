@@ -14,7 +14,7 @@ from scipy.io import savemat
 from skimage.feature import register_translation
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
-import matplotlib.pyplot as mpl
+from matplotlib.figure import Figure
 
 fits = None
 try:
@@ -149,16 +149,17 @@ def thumbnails(simsobj, cycle=0, mass=None, labels=None):
         row += 1
         col = row
 
-    fig = figure(figsize=(14.2222, 14.2222), dpi=72, facecolor='white')
+    fig = Figure(figsize=(14.2222, 14.2222), dpi=72, facecolor='white')
+    plots = fig.subplots(nrows=row, ncols=col)
     for m, n in zip(mass, range(len(mass))):
-            ax = mpl.subplot(row, col, n+1)
+            ax = plots[m][n]
             ax.axis('off')
             ax.imshow(simsobj.data.loc[m, cycle])
             if labels:
                 ax.title(labels[n])
-            # mpl.colorbar()
 
-    mpl.show()
+    return fig
+
 
 def coordinates(filelist, **kwargs):
     """ Find all coordinates in a list of image files.
@@ -176,51 +177,51 @@ def coordinates(filelist, **kwargs):
 
     patches = []
     x_min = None
-    fig = mpl.figure()
+    fig = Figure()
     ax = fig.gca()
 
     for fn, lb in zip(filelist, labels):
-        s = sims.SIMSOpener(fn)
-        s.peek()
-        s.read_header()
-        s.close()
+        with open(fn, mode='rb') as fh:
+            s = sims.SIMSReader(fh)
+            s.peek()
+            s.read_header()
 
-        # Remember!! In Cameca-land, X is up-down, Y is left-right. Fix here.
-        x = s.header['sample y']
-        y = s.header['sample x']
+            # Remember!! In Cameca-land, X is up-down, Y is left-right. Fix here.
+            x = s.header['sample y']
+            y = s.header['sample x']
 
-        if (x == 0 and y == 0):
-            warnings.warn('Coordinates for file {} are 0,0.'.format(fn))
+            if x == 0 and y == 0:
+                warnings.warn('Coordinates for file {} are 0,0.'.format(fn))
 
-        if (('PrimaryBeam' in s.header.keys()) and ('raster' in s.header['PrimaryBeam'].keys())):
-            raster = s.header['PrimaryBeam']['raster']
-        elif (('Image' in s.header.keys()) and ('raster' in s.header['Image'].keys())):
-            raster = s.header['Image']['raster']/1000
-        else:
-            warnings.warn('No raster size in header of file {}.'.format(fn))
-            raster = 0
+            if 'PrimaryBeam' in s.header and 'raster' in s.header['PrimaryBeam']:
+                raster = s.header['PrimaryBeam']['raster']
+            elif 'Image' in s.header and 'raster' in s.header['Image']:
+                raster = s.header['Image']['raster']/1000
+            else:
+                warnings.warn('No raster size in header of file {}.'.format(fn))
+                raster = 0
 
-        # Text uses center of image coordinate, box uses lower left.
-        ax.text(x, y, lb, ha='center', va='center', fontsize=8)
+            # Text uses center of image coordinate, box uses lower left.
+            ax.text(x, y, lb, ha='center', va='center', fontsize=8)
 
-        x -= raster/2
-        y -= raster/2
+            x -= raster/2
+            y -= raster/2
 
-        # Update data limits, relim() used by autoview does not work with collections (yet)
-        if not x_min:
-            # first pass
-            x_min = x
-            x_max = x + raster
-            y_min = y
-            y_max = y + raster
-        else:
-            if x < x_min: x_min = x
-            if x + raster > x_max: x_max = x + raster
-            if y < y_min: y_min = y
-            if y + raster > y_max: y_max = y + raster
+            # Update data limits, relim() used by autoview does not work with collections (yet)
+            if not x_min:
+                # first pass
+                x_min = x
+                x_max = x + raster
+                y_min = y
+                y_max = y + raster
+            else:
+                if x < x_min: x_min = x
+                if x + raster > x_max: x_max = x + raster
+                if y < y_min: y_min = y
+                if y + raster > y_max: y_max = y + raster
 
-        rect = Rectangle((x,y), raster, raster, ec='black', fc='white', fill=False)
-        patches.append(rect)
+            rect = Rectangle((x,y), raster, raster, ec='black', fc='white', fill=False)
+            patches.append(rect)
 
     collection = PatchCollection(patches, match_original=True)
     ax.add_collection(collection)
