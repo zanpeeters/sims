@@ -1,25 +1,24 @@
 #!/usr/bin/env python
-
-import os
-import pkg_resources
-import unittest
-import warnings
+""" Test opening of a wide range of files with the sims module. """
 
 import numpy as np
+import os
+import pkg_resources
+import pytest
 
 import sims
-
-filedir = pkg_resources.resource_filename(__name__, 'files')
 
 test_open_im_files = [
     'first_test.im',
     'OpenMIMS_doc_040702_06-05mos-03a.im',
     'OpenMIMS_doc_051117_05-32dRe-03b.im',
-    'OR1d6m_15.im.bz2',
-    'OR1d6m_15corr.im.bz2',  # Limage output
+    'image windows.im',
+    'image sun.im',
+    'image limage.im',
     'RTIimage.im'
 ]
 
+# First file is uncompressed for comparison
 test_open_compressed_files = [
     'first_test.im',
     'first_test.im.gz',
@@ -56,47 +55,42 @@ test_open_not_supported_files = [
     'PHDscan.phd',
 ]
 
-class TestOpen(unittest.TestCase):
-    """ Unittest for all input files in test dir. """
-    def setUp(self):
-        """ Ignore ResourceWarnings, since opening of unsupported files may fail. """
-        warnings.simplefilter("ignore", ResourceWarning)
+filedir = pkg_resources.resource_filename(__name__, 'files')
 
-    def test_open_im(self):
-        """ Test opening of different flavours of the .im file. """
-        for f in test_open_im_files:
-            f = os.path.join(filedir, f)
-            with self.subTest(f=f):
-                with sims.SIMS(f) as s:
-                    pass
+def path(file):
+    return os.path.join(filedir, file)
 
-    def test_open_compressed(self):
-        """ Test that opening of compressed files works. """
-        uncf = os.path.join(filedir, test_open_compressed_files[0])
-        unc = sims.SIMS(uncf)
-        for f in test_open_compressed_files[1:]:
-            f = os.path.join(filedir, f)
-            with self.subTest(f=f):
-                with sims.SIMS(f) as compr:
-                    self.assertEqual(unc.header, compr.header)
-                    np.testing.assert_equal(unc.data.values, compr.data.values)
+@pytest.fixture()
+def uncompressed():
+    """ Open uncompressed .im file for comparison to compressed files. """
+    s = sims.SIMS(path(test_open_compressed_files[0]))
+    return s
 
-    def test_open_other(self):
-        """ Test opening of other file types. """
-        for f in test_open_other_files:
-            f = os.path.join(filedir, f)
-            with self.subTest(f=f):
-                with sims.SIMS(f) as s:
-                    pass
+@pytest.mark.parametrize('file', test_open_im_files)
+def test_open_im(file):
+    """ Test opening of different flavours of the .im file. """
+    with sims.SIMS(path(file)) as s:
+        pass
 
-    def test_open_not_supported(self):
-        """ Test that unsupported but recognized file types fail. """
-        for f in test_open_not_supported_files:
-            f = os.path.join(filedir, f)
-            with self.subTest(f=f):
-                with self.assertRaises(NotImplementedError) as err:
-                    with sims.SIMS(f) as s:
-                        pass
+@pytest.mark.parametrize('file', test_open_compressed_files[1:])
+def test_open_compressed(file, uncompressed):
+    """ Test that opening of compressed files works. """
+    with sims.SIMS(path(file)) as compressed:
+        assert uncompressed.header == compressed.header
+        np.testing.assert_equal(uncompressed.data.values, compressed.data.values)
+
+@pytest.mark.parametrize('file', test_open_other_files)
+def test_open_other(file):
+    """ Test opening of other file types. """
+    with sims.SIMS(path(file)) as s:
+        pass
+
+@pytest.mark.parametrize('file', test_open_not_supported_files)
+def test_open_not_supported(file):
+    """ Test that unsupported but recognized file types fail. """
+    with pytest.raises(NotImplementedError):
+        with sims.SIMS(path(file)):
+            pass
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    pytest.main(args=['-v', __file__])
