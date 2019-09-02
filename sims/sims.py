@@ -36,23 +36,23 @@ _stage_scan_types = {
     2: 'image scan',
 }
 
-# large scale, movement control, small scale
-# spot/line/image, beam/stage, raster/static
 _file_types = {
     21: 'depth profile',
     22: 'line scan, stage control',
-    25: 'energy scan',
-    26: 'isotope image',
+    25: 'E0S/E0W scan',
+    26: 'spot',
     27: 'image',
     29: 'grain mode image',
-    31: 'SIBC file',
-    35: 'beam stability file',
+    31: 'HMR/SIBC/trolley step scan',
+    32: 'PHD scan',
+    34: 'tools scan',
+    35: 'beam stability/leak current',
     39: 'line scan image',
     40: 'line scan, beam control',
-    41: 'stage scan image',
+    41: 'stage scan image'
 }
 
-_supported_file_types = { 21, 22, 26, 27, 29, 35, 39, 40, 41 }
+_supported_file_types = { 21, 22, 26, 27, 29, 31, 35, 39, 40, 41 }
 
 _peakcenter_sides = {
     0: 'left',
@@ -178,11 +178,18 @@ class SIMSReader(object):
         # From OpenMIMS documentation I know that PolyList is as list of
         # Species dicts, but don't know how to read ChampsList or OffsetList.
         if polylist_pos < 0:
+            # Case 1: No PL marker, so far only found for Real Time Images,
+            # beam stability, or secondary ion beam centering files.
             if self.header['analysis type'].endswith('rti') \
             or self.header['file type'] == 35:
-                # Case 1: No PL marker, so far only found for Real Time Images
-                # or beam stability file
                 hdr.seek(216, 1)
+            elif self.header['file type'] == 31:
+                if self.header['analysis type'].endswith('hmr') \
+                or self.header['analysis type'].endswith('trolley step scan'):
+                    hdr.seek(120, 1)
+                else:
+                    # secondary ion beam
+                    hdr.seek(600, 1)
             else:
                 msg = 'No PolyList marker found in header and not and RTI image. '
                 msg += 'Don\'t know how to continue.'
@@ -351,7 +358,7 @@ class SIMSReader(object):
         if self.header['file type'] == 26:
             hdr.seek(-176, 2)
             self.header['Isotopes'] = self._isotopes_hdr(hdr)
-        elif self.header['file type'] in (21, 22, 35):
+        elif self.header['file type'] in (21, 22, 31, 35):
             # no image header for line scan or beam stability
             pass
         else:
@@ -388,7 +395,7 @@ class SIMSReader(object):
             # line scan types, no ImageHeader
             warnings.warn('No data read for line scan, fix')
             pass
-        elif self.header['file type'] == 35:
+        elif self.header['file type'] in (31, 35):
             self._beamstability_data()
         else:
             self._image_data()
@@ -464,18 +471,20 @@ class SIMSReader(object):
 
             # 24 bytes unknown, not sure if they go here or before AutoCal
             hdr.seek(24, 1)
+
+        elif self.header['file type'] == 31:
+            # Don't know if this is correct, all 0s anyway
+            d['original filename'], d['scan type'], d['beam blanking'], d['presputtering'] = \
+                unpack(self._bo + '16s 3i 4x', hdr.read(32))
+
         elif self.header['file type'] == 35:
-            d['original filename'], unknown, d['analysis duration'], d['frames'] = \
-                unpack(self._bo + '16s 3i 48x', hdr.read(76))
-            
-            # Set these here so that they can be converted later,
-            # or until I figure out what else is in 48 skipped bytes.
-            d['scan type'] = 0
-            d['beam blanking'] = 0
-            d['presputtering'] = 0
+            d['original filename'], d['scan type'], d['analysis duration'], \
+                d['frames'], d['beam blanking'], d['presputtering'] = \
+                unpack(self._bo + '16s 5i 40x', hdr.read(76))
 
             d['AutoCal'] = self._autocal(hdr)
             d['HVControl'] = self._hvcontrol(hdr)
+
         else:
             raise TypeError('What type of image are you? {}'.format(self.header['file type']))
 
@@ -499,13 +508,13 @@ class SIMSReader(object):
                 n = 60
             else:
                 n = 10
-        elif self.header['file type'] in (22, 40, 41):
+        elif self.header['file type'] in (22, 31, 40, 41):
             n = 20
         else:
             n = 0
 
         # Not sure what this is, memory pointers? Not needed.
-        # d['mass table ptr'] = unpack(self._bo + n*'i', hdr.read(n*4))
+        # d['mass table ptr'] = unpack(self._bo + 2*n*'h', hdr.read(n*4))
         hdr.seek(n*4, 1)
 
         if self.header['file type'] in (21, 22, 26, 40, 41, 35):
@@ -515,12 +524,26 @@ class SIMSReader(object):
         d['MassTable'] = collections.OrderedDict()
         for m in range(d['masses']):
             mi = {}
-            mi['trolley index'], unknown, mi['mass'], \
-                mi['matrix or trace'], mi['detector'], mi['wait time'], \
-                mi['frame count time'], mi['offset'], mi['b field index'] = \
-                unpack(self._bo + '2i d 2i 2d 2i', hdr.read(48))
+            mi['trolley index'], unknown, mi['mass'], mi['matrix or trace'], \
+                mi['detector'], mi['wait time'], mi['frame count time'] = \
+                unpack(self._bo + '2i d 2i 2d', hdr.read(40))
+
+            if self.header['file type'] == 31:
+                if d['analysis type'].endswith('trolley step scan'):
+                    # start and end are in mm, step is in μm; convert to mm
+                    mi['radius start'], mi['radius end'], mi['radius step'], mi['b field bits'] = \
+                        unpack(self._bo + '3d i', hdr.read(28))
+                    mi['radius step'] /= 1000
+                else:
+                    mi['voltage start'], mi['voltage end'], mi['voltage step'], mi['b field bits'] = \
+                        unpack(self._bo + '3d i', hdr.read(28))
+            else:
+                mi['offset'], mi['b field bits'] = unpack(self._bo + '2i', hdr.read(8))
 
             mi.update(self._species(hdr))
+
+            if self.header['file type'] == 31:
+                hdr.seek(4, 1)
 
             # Add correction controls, my own addition.
             mi['background corrected'] = False
@@ -735,7 +758,7 @@ class SIMSReader(object):
         """ Internal function; reads 2840 bytes; returns BField dict """
         # Called TabBFieldNano in OpenMIMS
         d = {}
-        d['b field enabled'], d['b field'], d['wait time'], \
+        d['b field enabled'], d['b field bits'], d['wait time'], \
             d['time per pixel'], d['time per step'], d['wait time computed'], \
             d['E0W offset'], d['Q'], d['LF4'], d['hex val'], d['frames per bfield'] = \
             unpack(self._bo + '4i d 6i', hdr.read(48))
@@ -1101,7 +1124,7 @@ class SIMSReader(object):
         return d
 
     def _presets(self, hdr):
-        """ Internal function; reads 11400 bytes, returns Presets dict. """
+        """ Internal function; reads 11,600 bytes, returns Presets dict. """
         # presput/slit = 1080
         # presput/lens = 3640
         # measure/slit = 1080
@@ -1297,25 +1320,36 @@ class SIMSReader(object):
     def _beamstability_data(self):
         """ Internal function; read data in .bs beam stability file."""
         traces = unpack(self._bo + 'i', self.fh.read(4))[0]
-        time = None
+        x = []
         data = []
         maxpoints = 0
-        for t in range(traces):
+        for _ in range(traces):
             points = unpack(self._bo + 'i', self.fh.read(4))[0]
             d = np.fromfile(self.fh, dtype=self._bo+'f8', count=2*points).reshape(2, points)
             data.append(d[1])
             if points > maxpoints:
-                time = d[0]
+                x = d[0]
                 maxpoints = points
 
         for d in range(len(data)):
             pad_width = maxpoints - data[d].shape[0]
             data[d] = np.pad(data[d], (0, pad_width), 'constant')
 
-        self.data = xarray.DataArray(data, dims=('species', 'time'),
+        if self.header['file type'] == 31:
+            if self.header['analysis type'].endswith('trolley step scan'):
+                xprop = 'radius'
+                xunit = 'mm'
+            else:
+                xprop = 'deflection'
+                xunit = 'V'
+        elif self.header['file type'] == 35:
+            xprop = 'time'
+            xunit = 's'
+
+        self.data = xarray.DataArray(data, dims=('species', xprop),
             coords={
              'species': ('species', list(self.header['label list'])),
-             'time': ('time', time, {'unit': 's'})
+             xprop: (xprop, x, {'unit': xunit})
             },
             attrs={
              'unit': 'counts/s'

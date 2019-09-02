@@ -31,18 +31,22 @@ test_open_compressed_files = [
 
 test_open_other_files = [
     'beamstability.bs',
-	'depth profile.dp',
-	'grain mode cameca.im',
-	'grain mode ciw.im',
-	'image sample scan 1.ls',
+    'depth profile.dp',
+    'grain mode cameca.im',
+    'grain mode ciw.im',
+    'hmr_16O.hmr',
+    'image sample scan 1.ls',
     'leakcurrent.lc',
-	'line scan beam control.im',
-	'line scan stage control 1.ls',
-	'line scan stage control 2.ls',
-	'line scan stage control 3.ls',
-	'is01 R1 KH03-27 01.is',
-	'oxy1618_FC.is',
-	'sample stage image.ls',
+    'line scan beam control.im',
+    'line scan stage control 1.ls',
+    'line scan stage control 2.ls',
+    'line scan stage control 3.ls',
+    'is01 R1 KH03-27 01.is',
+    'oxy1618_FC.is',
+    'sample stage image.ls',
+    'SIB_horizontal.sib',
+    'SIB_vertical.sib',
+    'trolley_step_scan.tss'
 ]
 
 test_open_not_supported_files = [
@@ -51,9 +55,6 @@ test_open_not_supported_files = [
     'E0S.e0s',
     'PHDscan_raw.phd',
     'PHDscan.phd',
-    'SIB_horizontal.sib',
-    'SIB_vertical.sib',
-    'trolley_step_scan.tss'
 ]
 
 class TestOpen(unittest.TestCase):
