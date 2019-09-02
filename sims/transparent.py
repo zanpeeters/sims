@@ -13,21 +13,23 @@ class TransparentOpen(object):
         """ Usage: t = TransparentOpen('filename', file_in_archive='abc.txt', password='xxx')
 
             Returns an object t with a filehandle t.fh which points to the
-            decompressed file. In the case of a multifile archive (.zip,
-            .7z, and any of the tar combinations), a t.fh_archive will point to
+            decompressed file. In the case of a multifile archive (zip,
+            7z, and any of the tar combinations), a t.fh_archive will point to
             the opened outer archive, while t.fh points to the requested file
             inside the archive. The filename is stored in t.filename.
             
             file_in_archive can be used to select a file from a multifile
             archive, either by index (0 is the first file in the archive),
-            or by filename. On python 2, the filename must be a byte string.
+            or by filename.
             
-            Optionally set the password for encrypted archives. Passwords are
-            only supported on zip and 7zip archives.
+            Optionally set a password for encrypted archives. Passwords are
+            only supported by zip and 7zip archives.
             
             Use t.close() to close both inner and outer filehandles at once.
             
             TransparentOpen supports the with statement.
+
+            Raises IOError on errors.
         """
         if not isinstance(file_in_archive, (int, str)):
             raise IOError('file_in_archive must be int or str.')
@@ -52,14 +54,7 @@ class TransparentOpen(object):
                 self.fh = bz2.BZ2File(filename, mode='rb')
 
             elif ext in ('.lzma', '.xz'):
-                # available in Python 3.3 and higher
-                try:
-                    import lzma
-                except ImportError:
-                    msg = 'LZMA module is not installed on your system. Use Python 3.3 or higher,'
-                    msg += ' or install a module to handle lzma/xz compressed files.'
-                    raise IOError(msg)
-
+                import lzma
                 self.fh = lzma.LZMAFile(filename, mode='rb')
 
             elif ext in ('.tar', '.tar.bz2', '.tbz', '.tbz2', '.tar.gz', '.tgz',
