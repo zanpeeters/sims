@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ Python module to read Cameca (nano)SIMS data files. """
 
 import bz2

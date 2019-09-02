@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ Tools and utilities for the sims module. """
 
 import re

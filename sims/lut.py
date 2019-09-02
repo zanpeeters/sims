@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ Convert and load Cameca and L'image look-up tables.
 
     Module to load Look-Up Tables (LUTs) from the Cameca-supplied lut

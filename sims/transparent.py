@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """ Python module to transparently open compressed files. """
 
 import os, io
