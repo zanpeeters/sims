@@ -62,14 +62,14 @@ def format_species(name, mhchem=False, mathrm=False):
         space-separated within a molecule, as in Cameca formatting. Irregularly
         formatted strings are silently skipped.
 
-        If mhchem=True, then the \ce command from the mhchem package is used to
+        If mhchem=True, then the \\ce command from the mhchem package is used to
         format species names. This gives much better results, but requires LaTeX
         and mhchem to be installed. For this to typeset properly in matplotlib,
         set 'text.usetex' to True and include '\\usepackage{mhchem}' in
         'text.latex.preamble' (or 'pgf.preamble' when exporting as pgf) in
         rcParams or matplotlibrc.
 
-        If mathrm=True, a \mathrm command is inserted, to typeset upright
+        If mathrm=True, a \\mathrm command is inserted, to typeset upright
         letters. Useful when the full LaTeX engine is used (text.usetex: True in
         matplotlibrc); LaTeX typesets math mode text in italic by default. This
         option is ignored if mhchem=True.
@@ -79,10 +79,10 @@ def format_species(name, mhchem=False, mathrm=False):
         '${}^{12}C_{2}{}^{2}H$'
 
         >>> format_species('12C2 2H', mathrm=True)
-        '$\mathrm{{}^{12}C_{2}{}^{2}H}$'
+        '$\\mathrm{{}^{12}C_{2}{}^{2}H}$'
 
         >>> format_species('12C2 2H', mhchem=True)
-        '\ce{{}^{12}C_{2}{}^{2}H}
+        '\\ce{{}^{12}C_{2}{}^{2}H}
     """
     # {} is format subst. {{}} is literal {} after expansion.
     # {{{}}} is a subst inside a literal {} after expansion.
@@ -95,10 +95,10 @@ def format_species(name, mhchem=False, mathrm=False):
     charge_tmpl = '^{{{charge}}}'
 
     if mhchem:
-        begin = '\ce{'
+        begin = '\\ce{'
         end = '}'
     elif mathrm:
-        begin = '$\mathrm{'
+        begin = '$\\mathrm{'
         end = '}$'
     else:
         begin = end = '$'
