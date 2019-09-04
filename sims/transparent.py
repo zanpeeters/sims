@@ -1,6 +1,8 @@
 """ Python module to transparently open compressed files. """
 
-import os, io
+import io
+import os
+
 
 class TransparentOpen(object):
     """ File opener class with transparent support for compressed files.
@@ -9,23 +11,24 @@ class TransparentOpen(object):
         .tar.lzma, .tlz.
     """
     def __init__(self, filename, file_in_archive=0, password=None):
-        """ Usage: t = TransparentOpen('filename', file_in_archive='abc.txt', password='xxx')
+        """ Usage: t = TransparentOpen('filename', file_in_archive='abc.txt',
+            password='xxx')
 
             Returns an object t with a filehandle t.fh which points to the
-            decompressed file. In the case of a multifile archive (zip,
-            7z, and any of the tar combinations), a t.fh_archive will point to
-            the opened outer archive, while t.fh points to the requested file
+            decompressed file. In the case of a multifile archive (zip, 7z, and
+            any of the tar combinations), a t.fh_archive will point to the
+            opened outer archive, while t.fh points to the requested file
             inside the archive. The filename is stored in t.filename.
-            
+
             file_in_archive can be used to select a file from a multifile
             archive, either by index (0 is the first file in the archive),
             or by filename.
-            
+
             Optionally set a password for encrypted archives. Passwords are
             only supported by zip and 7zip archives.
-            
+
             Use t.close() to close both inner and outer filehandles at once.
-            
+
             TransparentOpen supports the with statement.
 
             Raises IOError on errors.
@@ -56,8 +59,8 @@ class TransparentOpen(object):
                 import lzma
                 self.fh = lzma.LZMAFile(filename, mode='rb')
 
-            elif ext in ('.tar', '.tar.bz2', '.tbz', '.tbz2', '.tar.gz', '.tgz',
-                         '.tar.xz', '.txz', '.tar.lzma', '.tlz'):
+            elif ext in ('.tar', '.tar.bz2', '.tbz', '.tbz2', '.tar.gz',
+                         '.tgz', '.tar.xz', '.txz', '.tar.lzma', '.tlz'):
                 import tarfile
 
                 self.fh_archive = tarfile.open(filename, mode='r')
@@ -79,9 +82,7 @@ class TransparentOpen(object):
                 try:
                     import py7zlib
                 except ImportError:
-                    msg = 'pylzma/py7zlib module is not installed on your system. See'
-                    msg += ' http://www.joachim-bauch.de/projects/pylzma'
-                    raise IOError(msg)
+                    raise IOError('Install py7zlib to open .7z files.')
 
                 with open(filename, mode='rb') as fh_raw:
                     archive = py7zlib.Archive7z(fh_raw, password=password)
@@ -123,15 +124,16 @@ class TransparentOpen(object):
                     self.fh = filename
                     self.filename = filename.name
                 else:
-                    msg = 'Fileobject {} opened in text-mode, reopen with mode="rb".'
-                    raise IOError(msg.format(filename))
+                    raise IOError('Fileobject {} opened in text-mode, reopen '
+                                  'with mode="rb".'.format(filename))
             else:
-                # Read but no seek and/or tell: wrap in BytesIO; let's hope it has a name.
+                # Read but no seek and/or tell: wrap in BytesIO,
+                # let's hope it has a name.
                 self.fh = io.BytesIO(filename.read())
                 self.filename = filename.name
         else:
-            msg = 'Cannot open file {}, don\'t know what it is.'
-            raise IOError(msg.format(filename))
+            raise IOError('Cannot open file {}, don\'t know what it is.'
+                          ''.format(filename))
 
     def close(self):
         """ Close the file. """
@@ -144,5 +146,3 @@ class TransparentOpen(object):
 
     def __exit__(self, type, value, traceback):
         self.close()
-
-    

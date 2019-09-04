@@ -24,6 +24,7 @@ test_open_compressed_files = [
     'first_test.im.gz',
     'first_test.im.bz2',
     'first_test.im.xz',
+    'first_test.im.zip',
     'first_test.tar.bz2'
 ]
 
@@ -57,8 +58,10 @@ test_open_not_supported_files = [
 
 filedir = pkg_resources.resource_filename(__name__, 'files')
 
+
 def path(file):
     return os.path.join(filedir, file)
+
 
 @pytest.fixture()
 def uncompressed():
@@ -66,24 +69,29 @@ def uncompressed():
     s = sims.SIMS(path(test_open_compressed_files[0]))
     return s
 
+
 @pytest.mark.parametrize('file', test_open_im_files)
 def test_open_im(file):
     """ Test opening of different flavours of the .im file. """
-    with sims.SIMS(path(file)) as s:
+    with sims.SIMS(path(file)):
         pass
+
 
 @pytest.mark.parametrize('file', test_open_compressed_files[1:])
 def test_open_compressed(file, uncompressed):
     """ Test that opening of compressed files works. """
     with sims.SIMS(path(file)) as compressed:
         assert uncompressed.header == compressed.header
-        np.testing.assert_equal(uncompressed.data.values, compressed.data.values)
+        np.testing.assert_equal(uncompressed.data.values,
+                                compressed.data.values)
+
 
 @pytest.mark.parametrize('file', test_open_other_files)
 def test_open_other(file):
     """ Test opening of other file types. """
-    with sims.SIMS(path(file)) as s:
+    with sims.SIMS(path(file)):
         pass
+
 
 @pytest.mark.parametrize('file', test_open_not_supported_files)
 def test_open_not_supported(file):
@@ -91,6 +99,7 @@ def test_open_not_supported(file):
     with pytest.raises(NotImplementedError):
         with sims.SIMS(path(file)):
             pass
+
 
 if __name__ == '__main__':
     pytest.main(args=['-v', __file__])

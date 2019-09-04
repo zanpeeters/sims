@@ -4,7 +4,6 @@ import bz2
 import collections
 import copy
 import datetime
-import enum
 import gzip
 import io
 import lzma
@@ -14,7 +13,6 @@ import re
 import tarfile
 import warnings
 import xarray
-import zipfile
 from struct import unpack
 
 # py7zlib is needed for 7z
@@ -50,7 +48,7 @@ _file_types = {
     41: 'stage scan image'
 }
 
-_supported_file_types = { 21, 22, 26, 27, 29, 31, 35, 39, 40, 41 }
+_supported_file_types = {21, 22, 26, 27, 29, 31, 35, 39, 40, 41}
 
 _peakcenter_sides = {
     0: 'left',
@@ -75,6 +73,7 @@ _detectors = {
     1: 'FC'
 }
 
+
 class SIMSReader(object):
     """ Base class for reading a SIMS file. """
     def __init__(self, fileobject, filename=''):
@@ -94,7 +93,7 @@ class SIMSReader(object):
             Everything except the filehandle is copied.
         """
         new = type(self)(None)
-        for k in self.__dict__.keys():
+        for k in self.__dict__:
             if k in ('fh', 'fh_archive'):
                 new.__dict__[k] = None
             else:
@@ -152,7 +151,7 @@ class SIMSReader(object):
         offsetlist_pos = hdr.rfind(b'Offset_list\x00')
 
         # Find first occurance for these.
-        analparam_pos = hdr.find(b'Anal_param\x00')
+        # analparam_pos = hdr.find(b'Anal_param\x00')
         analparamnano_pos = hdr.find(b'Anal_param_nano\x00')
         analparamnanobis_pos = hdr.find(b'Anal_param_nano_bis\x00')
 
@@ -178,20 +177,20 @@ class SIMSReader(object):
         if polylist_pos < 0:
             # Case 1: No PL marker, so far only found for Real Time Images,
             # beam stability, or secondary ion beam centering files.
-            if self.header['analysis type'].endswith('rti') \
-            or self.header['file type'] == 35:
-                hdr.seek(216, 1)
+            if (self.header['analysis type'].endswith('rti') or
+                self.header['file type'] == 35):
+                    hdr.seek(216, 1)
             elif self.header['file type'] == 31:
-                if self.header['analysis type'].endswith('hmr') \
-                or self.header['analysis type'].endswith('trolley step scan'):
-                    hdr.seek(120, 1)
+                if (self.header['analysis type'].endswith('hmr') or
+                    self.header['analysis type'].endswith('trolley step scan')):
+                        hdr.seek(120, 1)
                 else:
                     # secondary ion beam
                     hdr.seek(600, 1)
             else:
-                msg = 'No PolyList marker found in header and not and RTI image. '
-                msg += 'Don\'t know how to continue.'
-                raise NotImplementedError(msg)
+                raise NotImplementedError('No PolyList marker found in header '
+                                          'and not and RTI image. Don\'t know '
+                                          'how to continue.')
         elif (champslist_pos < 0 and offsetlist_pos < 0):
             # Case 2: PL, NS header
             self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
@@ -207,10 +206,10 @@ class SIMSReader(object):
             self.header['OffsetList'] = self._pco_list(hdr, 'offset', offsetlist_pos)
             self.header['PolyList'] = self._pco_list(hdr, 'poly', polylist_pos)
         else:
-            msg = 'An unknown order of the Poly/Champs/Offset Lists occured.\n'
-            msg += 'Positions: PL = {}, CL = {}, OL = {}'
-            msg = msg.format(polylist_pos, champslist_pos, offsetlist_pos)
-            raise NotImplementedError(msg)
+            raise NotImplementedError(
+                'An unknown order of the Poly/Champs/Offset Lists occured.\n'
+                'Positions: PL = {}, CL = {}, OL = {}'
+                ''.format(polylist_pos, champslist_pos, offsetlist_pos))
 
         self.header['NanoSIMSHeader'] = self._nanosims_header(hdr)
 
@@ -234,10 +233,10 @@ class SIMSReader(object):
 
         # Analytical parameters
 
-        ## anal_param is not in OpenMIMS at all, represents file
-        ## Cameca NanoSIMS Data/raw_spec/cur_anal_par
-        ## However, only few useful things in this section, all of
-        ## which are also in other sections. Skip.
+        # anal_param is not in OpenMIMS at all, represents file
+        # Cameca NanoSIMS Data/raw_spec/cur_anal_par
+        # However, only few useful things in this section, all of
+        # which are also in other sections. Skip.
         # if analparam_pos < 0:
         #     msg = 'Anal_param not found in header, skipping.'
         #     warnings.warn(msg)
@@ -372,16 +371,17 @@ class SIMSReader(object):
 
             Usage: s.read_data()
 
-            Reads all the data from the file object in s.fh. The data is
-            stored in s.data. The file header must be read before data can be read.
+            Reads all the data from the file object in s.fh. The data is stored
+            in s.data. The file header must be read before data can be read.
 
-            Data are stored as a xarray DataArray. Image data have coordinates: species,
-            frames, y, and x. s.data.attrs['unit'] holds the unit of the data, which
-            is either 'counts' or 'counts/s'.
+            Data are stored as a xarray DataArray. Image data have coordinates:
+            species, frames, y, and x. s.data.attrs['unit'] holds the unit of
+            the data, which is either 'counts' or 'counts/s'.
 
-            Isotope data contain the uncorrected, raw data, read from the .is_txt file
-            (if available). The corrected data (corrections done during measurement),
-            are read from the .is file and stored under s._data_corr.
+            Isotope data contain the uncorrected, raw data, read from the
+            .is_txt file (if available). The corrected data (corrections done
+            during measurement), are read from the .is file and stored under
+            s._data_corr.
         """
         if not self.header['data included']:
             pass
@@ -409,13 +409,15 @@ class SIMSReader(object):
             original being changed as well.
 
             The only exception is the filehandle(s) fh (and fh_archive): they
-            cannot be copied. File operations such as read_header and
-            read_data is therefore not possible after copy.
+            cannot be copied. File operations such as read_header and read_data
+            is therefore not possible after copy.
         """
         return copy.deepcopy(self)
 
     def _main_header(self, hdr):
-        """ Internal function; reads variable number of bytes; returns main header dict """
+        """ Internal function; reads variable number of bytes;
+            returns main header dict
+        """
         d = {}
         # Called readDefAnalysis in OpenMIMS
         d['sample type'], d['data included'], d['sample x'], d['sample y'], \
@@ -431,9 +433,10 @@ class SIMSReader(object):
 
         if self.header['file type'] in (27, 29, 39):
             # Called MaskImage/readMaskIm in OpenMIMS
-            d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
-                d['magnification'], d['size type'], d['size detector'], \
-                d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
+            d['original filename'], d['analysis duration'], d['frames'], \
+                d['scan type'], d['magnification'], d['size type'], \
+                d['size detector'], d['beam blanking'], d['presputtering'], \
+                d['presputtering duration'] = \
                 unpack(self._bo + '16s 3i 3h 2x 3i', hdr.read(48))
 
             d['AutoCal'] = self._autocal(hdr)
@@ -458,9 +461,10 @@ class SIMSReader(object):
         elif self.header['file type'] in (21, 26):
             # Not in OpenMIMS
             # this bit same as image, 1 extra unused/unknown
-            d['original filename'], d['analysis duration'], d['frames'], d['scan type'], \
-                d['magnification'], d['size type'], d['size detector'], \
-                d['beam blanking'], d['presputtering'], d['presputtering duration'] = \
+            d['original filename'], d['analysis duration'], d['frames'], \
+                d['scan type'], d['magnification'], d['size type'], \
+                d['size detector'], d['beam blanking'], d['presputtering'], \
+                d['presputtering duration'] = \
                 unpack(self._bo + '16s 4x 3i 3h 2x 3i', hdr.read(52))
 
             # this bit same as stage scan
@@ -472,7 +476,8 @@ class SIMSReader(object):
 
         elif self.header['file type'] == 31:
             # Don't know if this is correct, all 0s anyway
-            d['original filename'], d['scan type'], d['beam blanking'], d['presputtering'] = \
+            d['original filename'], d['scan type'], \
+                d['beam blanking'], d['presputtering'] = \
                 unpack(self._bo + '16s 3i 4x', hdr.read(32))
 
         elif self.header['file type'] == 35:
@@ -529,11 +534,13 @@ class SIMSReader(object):
             if self.header['file type'] == 31:
                 if d['analysis type'].endswith('trolley step scan'):
                     # start and end are in mm, step is in μm; convert to mm
-                    mi['radius start'], mi['radius end'], mi['radius step'], mi['b field bits'] = \
+                    mi['radius start'], mi['radius end'], \
+                        mi['radius step'], mi['b field bits'] = \
                         unpack(self._bo + '3d i', hdr.read(28))
                     mi['radius step'] /= 1000
                 else:
-                    mi['voltage start'], mi['voltage end'], mi['voltage step'], mi['b field bits'] = \
+                    mi['voltage start'], mi['voltage end'], \
+                        mi['voltage step'], mi['b field bits'] = \
                         unpack(self._bo + '3d i', hdr.read(28))
             else:
                 mi['offset'], mi['b field bits'] = unpack(self._bo + '2i', hdr.read(8))
@@ -549,8 +556,10 @@ class SIMSReader(object):
             mi['yield corrected'] = False
 
             label = mi.pop('label')
-            # This is true for NS50L and file version 4108. Anywhere else different?
-            # Maybe confirm this with the Trolleys dict, there is an Esi trolley.
+            # This is true for NS50L and file version 4108.
+            # Anywhere else different?
+            # Maybe confirm this with the Trolleys dict,
+            # there is an Esi trolley.
             if mi['trolley index'] == 8:
                 label = 'SE'
 
@@ -580,8 +589,9 @@ class SIMSReader(object):
         """ Internal function; reads 112 bytes, returns HVControl dict. """
         # Called readHvControl by OpenMIMS
         d = {}
-        d['hvcontrol enabled'], d['label'], d['begin'], d['duration'], d['limit low'], \
-            d['limit high'], d['step'], d['bandpass width'], d['count time'] = \
+        d['hvcontrol enabled'], d['label'], d['begin'], \
+            d['duration'], d['limit low'], d['limit high'], d['step'], \
+            d['bandpass width'], d['count time'] = \
             unpack(self._bo + 'i 64s 2i 3d i d', hdr.read(112))
 
         d['hvcontrol enabled'] = bool(d['hvcontrol enabled'])
@@ -603,8 +613,6 @@ class SIMSReader(object):
         # Called PolyAtomic in OpenMIMS source
         d = {}
 
-        # Charge is read in OpenMIMS as a char, which is not a Java char (2-bytes),
-        # but a single byte char.
         d['numeric flag'], d['numeric value'], d['elements'], \
             d['charges'], d['charge label'], d['label'] = \
             unpack(self._bo + '4i c 64s', hdr.read(81))
@@ -613,10 +621,11 @@ class SIMSReader(object):
         d['charge label'] = self._cleanup_string(d['charge label'])
 
         # OpenMIMS says 3 bytes AFTER el.table are unused; this is wrong,
-        # 3 bytes BEFORE el.table (b 81-84) are unused. n_elements (here: atomic number)
-        # is element number in periodic table rather than number of elements.
-        # n_isotopes (here: isotope number) is offset from main atomic Z number.
-        # Also: collapse ElementTable (Tabelts) into main dict, too many layers.
+        # 3 bytes BEFORE el.table (b 81-84) are unused. n_elements (here:
+        # atomic number) is element number in periodic table rather than
+        # number of elements. n_isotopes (here: isotope number) is offset from
+        # main atomic Z number. Also: collapse ElementTable (Tabelts) into
+        # main dict, too many layers.
         hdr.seek(3, 1)
         atoms = unpack(self._bo + '15i', hdr.read(60))
         d['atomic number'] = tuple(n for n in atoms[::3])
@@ -639,8 +648,9 @@ class SIMSReader(object):
             if name == 'poly':
                 d.append(self._species(hdr))
             else:
-                msg = '{}List is non-null, don\'t know how to read.'.format(name.capitalize())
-                raise NotImplementedError(msg)
+                raise NotImplementedError(
+                    '{}List is non-null, don\'t know how to read.'
+                    ''.format(name.capitalize()))
         hdr.seek(4, 1)
         return d
 
@@ -651,14 +661,15 @@ class SIMSReader(object):
         d['PeakCenter'] = {}
         d['nanosimsheader version'], d['regulation mode'], d['mode'], \
             d['grain mode'], d['semigraphic mode'], d['stage delta x'], \
-            d['stage delta y'], d['working frame width'], d['working frame height'], \
-            d['scanning frame x'], d['scanning frame width'], \
-            d['scanning frame y'], d['scanning frame height'], \
-            d['counting frame x start'], d['counting frame x end'], \
-            d['counting frame y start'], d['counting frame y end'], \
-            d['detector type'], d['electron scan'], d['scanning mode'], \
-            d['beam blanking'], d['PeakCenter']['peakcenter enabled'], \
-            d['PeakCenter']['start'], d['PeakCenter']['frequency'], d['b fields'] = \
+            d['stage delta y'], d['working frame width'], \
+            d['working frame height'], d['scanning frame x'], \
+            d['scanning frame width'], d['scanning frame y'], \
+            d['scanning frame height'], d['counting frame x start'], \
+            d['counting frame x end'], d['counting frame y start'], \
+            d['counting frame y end'], d['detector type'], d['electron scan'], \
+            d['scanning mode'], d['beam blanking'], \
+            d['PeakCenter']['peakcenter enabled'], d['PeakCenter']['start'], \
+            d['PeakCenter']['frequency'], d['b fields'] = \
             unpack(self._bo + '25i', hdr.read(100))
 
         d['PeakCenter']['peakcenter enabled'] = bool(d['PeakCenter']['peakcenter enabled'])
@@ -671,9 +682,10 @@ class SIMSReader(object):
         d['counting frame width'] = d['counting frame x end'] - d['counting frame x start'] + 1
         d['counting frame height'] = d['counting frame y end'] - d['counting frame y start'] + 1
 
-        # Found in at least one version (file v11, nsHeader v8) a repeat of Poly_list and this
-        # first part of nanoSIMSHeader. Total of repeat adds up to 288.
-        # After last Poly_list, 288 byte padding zone, not all null-bytes.
+        # Found in at least one version (file v11, nsHeader v8) a repeat of
+        # Poly_list and this first part of nanoSIMSHeader. Total of repeat
+        # adds up to 288. After last Poly_list, 288 byte padding zone, not all
+        # null-bytes.
         hdr.seek(288, 1)
 
         # Is this the nPrintRed from OpenMIMS?
@@ -740,8 +752,9 @@ class SIMSReader(object):
         # Called E0SNano in OpenMIMS
         # b field index and e0s center enabled added to sub dict from main nano header
         d = {}
-        d['b field index'], d['detector'], d['start'], d['step size'], \
-            d['count time'], d['center'], d['80% width'], d['E0S center enabled'] = \
+        d['b field index'], d['detector'], d['start'], \
+            d['step size'], d['count time'], d['center'], \
+            d['80% width'], d['E0S center enabled'] = \
             unpack(self._bo + '5i 2d i', hdr.read(40))
 
         d['E0S center enabled'] = bool(d['E0S center enabled'])
@@ -757,8 +770,9 @@ class SIMSReader(object):
         # Called TabBFieldNano in OpenMIMS
         d = {}
         d['b field enabled'], d['b field bits'], d['wait time'], \
-            d['time per pixel'], d['time per step'], d['wait time computed'], \
-            d['E0W offset'], d['Q'], d['LF4'], d['hex val'], d['frames per bfield'] = \
+            d['time per pixel'], d['time per step'], \
+            d['wait time computed'], d['E0W offset'], d['Q'], \
+            d['LF4'], d['hex val'], d['frames per bfield'] = \
             unpack(self._bo + '4i d 6i', hdr.read(48))
 
         d['b field enabled'] = bool(d['b field enabled'])
@@ -795,12 +809,12 @@ class SIMSReader(object):
         # Add detector index that links trolley to detector and
         # trolley names. Don't know how to do this for EMBig, LD etc.
         for t in range(12):
-            if t in (1,2,3,4,5):
-                    trolleys[t]['trolley label'] = 'Trolley {}'.format(t)
-                    trolleys[t]['detector label'] = 'Detector {}'.format(t)
-            elif t in (10,11):
-                    trolleys[t]['trolley label'] = 'Trolley {}'.format(t - 4)
-                    trolleys[t]['detector label'] = 'Detector {}'.format(t - 4)
+            if t in (1, 2, 3, 4, 5):
+                trolleys[t]['trolley label'] = 'Trolley {}'.format(t)
+                trolleys[t]['detector label'] = 'Detector {}'.format(t)
+            elif t in (10, 11):
+                trolleys[t]['trolley label'] = 'Trolley {}'.format(t - 4)
+                trolleys[t]['detector label'] = 'Detector {}'.format(t - 4)
             elif t == 8:
                 trolleys[t]['trolley label'] = 'SE'
                 trolleys[t]['detector label'] = 'SE'
@@ -817,13 +831,15 @@ class SIMSReader(object):
         d = {}
         # exit slit seems to be incorrect
         d['label'], d['mass'], d['radius'], d['deflection plate 1'], \
-            d['deflection plate 2'], d['detector'], d['exit slit'], d['real trolley'], \
-            d['cameca trolley index'], d['peakcenter index'], d['peakcenter follow'], d['focus'], \
+            d['deflection plate 2'], d['detector'], d['exit slit'], \
+            d['real trolley'], d['cameca trolley index'], \
+            d['peakcenter index'], d['peakcenter follow'], d['focus'], \
             d['hmr start'], d['start dac plate 1'], d['start dac plate 2'], \
             d['hmr step'], d['hmr points'], d['hmr count time'], \
             d['used for baseline'], d['50% width'], d['peakcenter side'], \
-            d['peakcenter count time'], d['used for sib center'], d['unit correction'], \
-            d['deflection'], d['used for energy center'], d['used for E0S center'] = \
+            d['peakcenter count time'], d['used for sib center'], \
+            d['unit correction'], d['deflection'], \
+            d['used for energy center'], d['used for E0S center'] = \
             unpack(self._bo + '64s 2d 8i 2d 6i d 4i d 2i', hdr.read(192))
 
         # 16 extra bytes per trolley entry, not in OpenMIMS
@@ -839,14 +855,15 @@ class SIMSReader(object):
         d['used for E0S center'] = bool(d['used for E0S center'])
         d['real trolley'] = bool(d['real trolley'])
         d['peakcenter side'] = _peakcenter_sides.get(d['peakcenter side'],
-                                                         str(d['peakcenter side']))
+                                                     str(d['peakcenter side']))
         d['detector'] = _detectors.get(d['detector'], str(d['detector']))
         d['hmr count time'] /= 100
         d['peakcenter count time'] /= 100
 
         # If trolley is real and index is >= 0, then it is enabled. If it is real and
         # index is -1, it is not enabled. If index is < -1, it should also be not real.
-        d['trolley enabled'] = bool(d['real trolley'] and d['cameca trolley index'] >= 0)
+        d['trolley enabled'] = bool(d['real trolley']
+                                    and d['cameca trolley index'] >= 0)
 
         return d
 
@@ -873,7 +890,7 @@ class SIMSReader(object):
         # Called ApPrimaryNano in OpenMIMS
         d = {}
         start_position = hdr.tell()
-        d['source'], d['current start'], d['current end'], d['Lduo'], d['L1'] =\
+        d['source'], d['current start'], d['current end'], d['Lduo'], d['L1'] = \
             unpack(self._bo + '8s 4i', hdr.read(24))
 
         # Each widths list is 10 ints long
@@ -886,7 +903,8 @@ class SIMSReader(object):
 
         # 4 bytes unused
         hdr.seek(4, 1)
-        d['raster'], d['oct45'], d['oct90'], d['E0P'], d['pressure analysis chamber'] = \
+        d['raster'], d['oct45'], d['oct90'], d['E0P'], \
+            d['pressure analysis chamber'] = \
             unpack(self._bo + '4d 32s', hdr.read(64))
 
         d['source'] = self._cleanup_string(d['source'])
@@ -976,7 +994,8 @@ class SIMSReader(object):
         for n in range(1, 8):
             det = 'Detector {}'.format(n)
             d[det] = {}
-            d[det]['fc background setup positive'], d[det]['fc background setup negative'] = \
+            d[det]['fc background setup positive'], \
+                d[det]['fc background setup negative'] = \
                 unpack(self._bo + '2i', hdr.read(8))
 
         for n in range(1, 8):
@@ -992,25 +1011,25 @@ class SIMSReader(object):
         # Each detector exit slit has:
         # - a position (0, 1, 2)
         # - a size (normal, large, xl)
-        # The exit slits widths (and heights) are a 3x5 matrix where coordinate (size, pos)
-        #  returns actual width (height). positions 4 and 5 are 0 (for future expansion?)
-        # Size XL not stored in same part of header, and only in analysis version >= 5, so we
-        # return a list of length 5 with 0s here. Slits 0, 1, 2 are called slit 1, slit 2,
+        # The exit slits widths (and heights) are a 3x5 matrix where
+        # coordinate (size, pos)  returns actual width (height). positions 4
+        # and 5 are 0 (for future expansion?) Size XL not stored in same part
+        # of header, and only in analysis version >= 5, so we return a list of
+        # length 5 with 0s here. Slits 0, 1, 2 are called slit 1, slit 2,
         # slit 3, so add labels to avoid confusion.
 
         d['exit slit'], d['exit slit size'] = \
             unpack(self._bo + '2i', hdr.read(8))
         d['exit slit label'] = _exit_slit_labels.get(d['exit slit'], str(d['exit slit']))
-        d['exit slit size label'] = \
-            _exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
+        d['exit slit size label'] = _exit_slit_size_labels.get(d['exit slit size'], str(d['exit slit size']))
 
         w0 = tuple(unpack(self._bo + '5i', hdr.read(20)))
         w1 = tuple(unpack(self._bo + '5i', hdr.read(20)))
-        w2 = (0,0,0,0,0)
+        w2 = (0, 0, 0, 0, 0)
         d['exit slit widths'] = (w0, w1, w2)
         h0 = tuple(unpack(self._bo + '5i', hdr.read(20)))
         h1 = tuple(unpack(self._bo + '5i', hdr.read(20)))
-        h2 = (0,0,0,0,0)
+        h2 = (0, 0, 0, 0, 0)
         d['exit slit heights'] = (h0, h1, h2)
         return d
 
@@ -1028,8 +1047,8 @@ class SIMSReader(object):
         d['simsheader version'], d['original filename'], d['matrix'], \
             d['sigref auto'], d['sigref points'], d['sigref delta'], \
             d['sigref scan time'], d['sigref measure time'], \
-            d['sigref beam on time'], d['eps centering enabled'], d['eps enabled'], \
-            d['eps central energy'], d['eps b field'] = \
+            d['sigref beam on time'], d['eps centering enabled'], \
+            d['eps enabled'], d['eps central energy'], d['eps b field'] = \
             unpack(self._bo + 'i 256s 256s 10i', hdr.read(556))
 
         d['EPSCentralSpecies'] = self._species(hdr)
@@ -1071,7 +1090,8 @@ class SIMSReader(object):
 
         # First entry in preset is .isf filename with full path
         # If preset is used at all, first entry is non-null.
-        # Paths start with / (older Sun systems), or drive letter (D: newer Windows systems)
+        # Paths start with / (older Sun systems), or drive letter
+        # (D: newer Windows systems)
         if re.match('[A-Z]:', test) or re.match('/.', test):
             return True
         else:
@@ -1099,8 +1119,8 @@ class SIMSReader(object):
         d['calibration date'] = self._cleanup_date(d['calibration date'])
 
         # Presets have a fixed length: 1080 for slits, 3640 for lenses.
-        # Padded with null- or CC bytes (but there may be other stuff in there).
-        # There are more than d['parameters'] parameters in here, but
+        # Padded with null- or CC bytes (but there may be other stuff in
+        # there). There are more than d['parameters'] parameters in here, but
         # they seem to be "left-overs" from previous presets. Much the
         # same as strings which have more text after the terminating null-byte.
         # Only read first d['parameters'] parameters.
@@ -1128,7 +1148,8 @@ class SIMSReader(object):
         # measure/slit = 1080
         # measure/lens = 3640
         # 2 x 1080 padding
-        # padding can be before presput, inbetween presput and measure, and after measure.
+        # padding can be before presput, inbetween presput and measure,
+        # and after measure.
 
         d = {}
         d['Presputter'] = {}
@@ -1151,8 +1172,9 @@ class SIMSReader(object):
         """ Internal function; reads 84 bytes, returns Image dict. """
         # Called ... in OpenMIMS
         d = {}
-        d['header size'], d['type'], d['width'], d['height'], d['bytes per pixel'], \
-            d['masses'], d['planes'], d['raster'], d['original filename'] = \
+        d['header size'], d['type'], d['width'], d['height'], \
+            d['bytes per pixel'], d['masses'], d['planes'], \
+            d['raster'], d['original filename'] = \
             unpack(self._bo + 'i 6h i 64s', hdr.read(84))
 
         # Called nickname in OpenMIMS
@@ -1167,16 +1189,16 @@ class SIMSReader(object):
         d = {}
         d['blocks'], d['frames per block'], d['rejection sigma'], ratios = \
             unpack(self._bo + '4i', hdr.read(16))
-        # ratios is the number of ratios to follow. Each ratio is a set of two ints.
-        # Each int is the index (0-index) of the species in the mass list. First int
-        # is numerator, second is denomenator of ratio.
+        # ratios is the number of ratios to follow. Each ratio is a set of two
+        # ints. Each int is the index (0-index) of the species in the mass
+        # list. First int is numerator, second is denomenator of ratio.
         r = unpack(self._bo + '{}i'.format(2*ratios), hdr.read(2*4*ratios))
         rtxt = tuple(self.header['label list'][n] for n in r)
         rfmt = tuple(self.header['label list fmt'][n] for n in r)
 
         d['ratios index'] = tuple((r[n], r[n+1]) for n in range(0, 2*ratios, 2))
         d['ratios'] = tuple((rtxt[n], rtxt[n+1]) for n in range(0, 2*ratios, 2))
-        d['ratios fmt'] = tuple('{}\slash {}'.format(rfmt[n], rfmt[n+1]) for n in range(0, 2*ratios, 2))
+        d['ratios fmt'] = tuple('{}\\slash {}'.format(rfmt[n], rfmt[n+1]) for n in range(0, 2*ratios, 2))
         # rest is filler with \xFF
         hdr.seek(176 - 16 - 2*4*ratios, 1)
         return d
@@ -1252,15 +1274,15 @@ class SIMSReader(object):
 
         data = []
         frames = self.header['frames']
-        l = 0
-        while l < len(txt):
-            if txt[l].startswith('B ='):
-                Tc = txt[l].split('=')[-1].strip().strip(' ms')
+        line = 0
+        while line < len(txt):
+            if txt[line].startswith('B ='):
+                Tc = txt[line].split('=')[-1].strip().strip(' ms')
                 Tc = float(Tc)/1000
-                d = np.loadtxt(txt[l+2 : l+2+frames])
-                data.append(d[:,1]/Tc)
-                l += 2 + frames
-            l += 1
+                d = np.loadtxt(txt[line + 2 : line + 2 + frames])
+                data.append(d[:, 1]/Tc)
+                line += 2 + frames
+            line += 1
 
         self.data = xarray.DataArray(data,
             dims=('species', 'frame'),
@@ -1268,7 +1290,9 @@ class SIMSReader(object):
             attrs={'unit': 'counts/s'})
 
     def _read_chk_is(self):
-        """ Internal function, reads .chk_is file, extracts background calibration. """
+        """ Internal function, reads .chk_is file,
+            extracts background calibration.
+        """
         fname = os.path.splitext(self.filename)[0] + '.chk_is'
         table = []
         bg_before = []
@@ -1346,11 +1370,11 @@ class SIMSReader(object):
 
         self.data = xarray.DataArray(data, dims=('species', xprop),
             coords={
-             'species': ('species', list(self.header['label list'])),
-             xprop: (xprop, x, {'unit': xunit})
+                'species': ('species', list(self.header['label list'])),
+                xprop: (xprop, x, {'unit': xunit})
             },
             attrs={
-             'unit': 'counts/s'
+                'unit': 'counts/s'
             })
 
     def _cleanup_string(self, bytes):
@@ -1365,15 +1389,15 @@ class SIMSReader(object):
             return bytes[:b].decode('latin-1').strip()
 
     def _cleanup_date(self, date):
-        """ Internal function; reads date-string, returns Python datetime object.
-            Assumes date-part and time-part are space separated, date is dot-separated,
-            and time is colon-separated. Returns None if date is empty, contains 'N/A',
-            or is not a string.
+        """ Internal function; reads date-string, returns Python datetime
+            object. Assumes date-part and time-part are space separated, date
+            is dot-separated, and time is colon-separated. Returns None if date
+            is empty, contains 'N/A', or is not a string.
         """
-        if (not date
-            or not isinstance(date, str)
-            or 'N/A' in date):
-            return None
+        if (not date or
+            not isinstance(date, str) or
+            'N/A' in date):
+                return None
 
         date, time = date.split()
         day, month, year = date.split('.')
@@ -1391,8 +1415,9 @@ class SIMSReader(object):
     def _chomp(self, hdr, filler=(b'\x00\x00\x00\x00', b'\xCC\xCC\xCC\xCC'), chunk=4):
         """ Internal function.
 
-            Reads and discards filler bytes, by default null (\\x00) and continue (\\xCC) bytes.
-            Stops at start of first non-filler byte. Reads chunk bytes at the time.
+            Reads and discards filler bytes, by default null (\\x00) and
+            continue (\\xCC) bytes. Stops at start of first non-filler byte.
+            Reads chunk bytes at the time.
         """
         filler = tuple(filler)
         bytes = hdr.read(chunk)
@@ -1404,25 +1429,26 @@ class SIMSReader(object):
 class SIMS(SIMSReader, TransparentOpen):
     """ Read a (nano)SIMS file and load the full header and image data. """
     def __init__(self, filename, file_in_archive=0, password=None):
-        """ Create a SIMS object that will hold all the header information and image data.
+        """ Create a SIMS object that will hold all the header information and
+            image data.
 
             Usage: s = sims.SIMS('filename.im' | 'filename.im.bz2' | fileobject)
 
             Header information is stored as a nested Python dict in SIMS.header,
             while data is stored in SIMS.data as a xarray DataArray.
 
-            This class can open Cameca (nano)SIMS files and transparently supports
-            compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and opening from
-            multifile archives (tar, compressed tar, zip, 7zip). Set file_in_archive
-            to the filename to extract, or the sequence number of the file in the
-            archive (0 is the first file). For encrypted archives (zip, 7z) set
-            password to access the data. For zip format, password must be a
-            byte-string.
+            This class can open Cameca (nano)SIMS files and transparently
+            supports compressed files (gzip, bzip2, xz, lzma, zip, 7zip) and
+            opening from multifile archives (tar, compressed tar, zip, 7zip).
+            Set file_in_archive to the filename to extract, or the sequence
+            number of the file in the archive (0 is the first file). For
+            encrypted archives (zip, 7z) set password to access the data. For
+            zip format, password must be a byte-string.
 
-            It's also possible to supply a file object to an already opened file.
-            In fact, SIMS can read from anything that provides a read() function,
-            although reading from a buffered object (with seek() and tell()
-            support) is much more efficient.
+            It's also possible to supply a file object to an already opened
+            file. In fact, SIMS can read from anything that provides a read()
+            function, although reading from a buffered object (with seek() and
+            tell() support) is much more efficient.
 
             SIMS supports the 'with' statement.
         """
@@ -1440,7 +1466,7 @@ class SIMS(SIMSReader, TransparentOpen):
         self.close()
 
 
-#####################################################################################
+###############################################################################
 # Not implemented yet in read_header
 #
 #     class CalCond

@@ -7,12 +7,6 @@ import datetime
 import numpy as np
 import xarray
 
-from matplotlib import is_interactive
-if is_interactive():
-    from matplotlib.pyplot import figure as Figure
-else:
-    from matplotlib.figure import Figure
-
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 from scipy.ndimage import shift
@@ -21,6 +15,12 @@ from skimage.feature import register_translation
 
 import sims
 from sims.transparent import TransparentOpen
+
+from matplotlib import is_interactive
+if is_interactive():
+    from matplotlib.pyplot import figure as Figure
+else:
+    from matplotlib.figure import Figure
 
 try:
     from astropy.io import fits
@@ -50,6 +50,7 @@ __all__ = [
 # http://physics.nist.gov/cgi-bin/cuu/Value?e
 coulomb = 1.6021766208e-19  # charge/ion
 ions_per_amp = 1/coulomb  # ions/A
+
 
 def format_species(name, mhchem=False, mathrm=False):
     """ Format the name of a chemical species.
@@ -146,15 +147,15 @@ def thumbnails(simsobj, frame=0, masses=[], labels=[], **kwargs):
         Give a list of masses to select which masses to generate thumbnails of.
         By default a thumbnail is generated for all masses in simsobj.
 
-        Set labels to a list of labels, one for each mass. By default the formatted
-        labels from the simsobj.header are used.
+        Set labels to a list of labels, one for each mass. By default the
+        formatted labels from the simsobj.header are used.
 
         Additional keyword arguments are passed on to matplotlib.imshow().
 
-        Returns a matplotlib figure instance. If you call this from 'interactive' mode
-        (e.g. from ipython --pylab or jupyter), an active figure is shown. If it is not
-        called from interactive mode, use fig.savefig('filename.pdf') to save the figure
-        to file.
+        Returns a matplotlib figure instance. If you call this from 'interactive'
+        mode (e.g. from ipython --pylab or jupyter), an active figure is shown.
+        If it is not called from interactive mode, use fig.savefig('filename.pdf')
+        to save the figure to file.
     """
     if not masses:
         masses = simsobj.data.species.values
@@ -200,15 +201,16 @@ def coordinates(filelist, **kwargs):
 
         Usage: fig = sims.coordinates([a.im, b.im], labels=['A', 'B'])
 
-        For each image in the list, the stage coordinates and raster size are extracted.
-        A box scaled to the rastersize is plotted for each image on a (X,Y) grid.
-        A label for each file can be given. If it's omitted, the filename will be printed
-        over the box, but no attempt is made to make the filename fit in the box.
+        For each image in the list, the stage coordinates and raster size are
+        extracted. A box scaled to the rastersize is plotted for each image on
+        a (X,Y) grid. A label for each file can be given. If it's omitted, the
+        filename will be printed over the box, but no attempt is made to make
+        the filename fit in the box.
 
-        Returns a matplotlib figure instance. If you call this from 'interactive' mode
-        (e.g. from ipython --pylab or jupyter), an active figure is shown. If it is not
-        called from interactive mode, use fig.savefig('filename.pdf') to save the figure
-        to file.
+        Returns a matplotlib figure instance. If you call this from 'interactive'
+        mode (e.g. from ipython --pylab or jupyter), an active figure is shown.
+        If it is not called from interactive mode, use fig.savefig('filename.pdf')
+        to save the figure to file.
     """
     labels = kwargs.pop('labels', filelist)
 
@@ -254,7 +256,7 @@ def coordinates(filelist, **kwargs):
             y_min = min(y, y_min)
             y_max = max(y + raster, y_max)
 
-            rect = Rectangle((x,y), raster, raster, ec='black', fc='white', fill=False)
+            rect = Rectangle((x, y), raster, raster, ec='black', fc='white', fill=False)
             patches.append(rect)
 
     collection = PatchCollection(patches, match_original=True)
@@ -278,19 +280,18 @@ def coordinates(filelist, **kwargs):
 def export_fits(simsobj, filename, extend=False, **kwargs):
     """ Export a SIMS object to a FITS file.
 
-        By default, the data structure will be saved as is, i.e.
-        a 3D data cube will be saved as such. Set extend=True to
-        unroll the outer dimension and save the remaining data
-        structures as a list of HDUs (Header Data Units, see
-        FITS documentation); a 3D data cube will be saved as a
-        list of 2D images.
+        By default, the data structure will be saved as is, i.e. a 3D data cube
+        will be saved as such. Set extend=True to unroll the outer dimension
+        and save the remaining data structures as a list of HDUs (Header Data
+        Units, see FITS documentation); a 3D data cube will be saved as a list
+        of 2D images.
 
-        Additional arguments are sent to fits.writeto(), see
-        astropy.io.fits for more info.
+        Additional arguments are sent to fits.writeto(), see astropy.io.fits
+        for more info.
     """
     if not fits:
-        msg = 'You need to install either pyfits or astropy to be able to export FITS files.'
-        raise ImportError(msg)
+        raise ImportError('You need to install either pyfits or astropy '
+                          'to be able to export FITS files.')
 
     data = simsobj.data
 
@@ -314,11 +315,11 @@ def export_fits(simsobj, filename, extend=False, **kwargs):
             data.max() <= np.iinfo('i4').max):
                 data = data.astype('i4', copy=False)
         elif (data.min() >= np.iinfo('u4').min and
-            data.max() <= np.iinfo('u4').max):
+              data.max() <= np.iinfo('u4').max):
                 data = data.astype('u4', copy=False)
         else:
-            msg = 'Data is (u)int64 and cannot safely be downcast to (u)int32.'
-            raise ValueError(msg)
+            raise ValueError('Data is (u)int64 and cannot safely be downcast '
+                             'to (u)int32.')
     elif data.dtype == np.int8:
         if data.min() >= 0:
             data = data.astype('u1', copy=False)
@@ -328,11 +329,11 @@ def export_fits(simsobj, filename, extend=False, **kwargs):
         data = data.astype('f4', copy=False)
     elif data.dtype == np.float128:
         if (data.min() >= np.finfo('f8').min and
-            data.max() <= np.finfo('f8').max) :
+            data.max() <= np.finfo('f8').max):
                 data = data.astype('f8', copy=False)
         else:
-            msg = 'Data is float128 and cannot safely be downcast to float64.'
-            raise ValueError(msg)
+            raise ValueError('Data is float128 and cannot safely be downcast '
+                             'to float64.')
 
     if extend:
         hl = [fits.PrimaryHDU()] + [fits.ImageHDU(n) for n in data]
@@ -349,32 +350,30 @@ def align(simsobj, reference_species='', reference_frame=0,
 
         usage: aligned_data, shifts = align(data)
 
-        Performs sub-pixel image translation registration (image alignment)
-        on the data. skimage.features.register_translation() is used for
-        calculating the shifts and scipy.ndimage.shift() is used to apply
-        the shifts to the data. See the documentation of those functions
-        for more information.
+        Performs sub-pixel image translation registration (image alignment) on
+        the data. skimage.features.register_translation() is used for
+        calculating the shifts and scipy.ndimage.shift() is used to apply the
+        shifts to the data. See the documentation of those functions for more
+        information.
 
-        All species are aligned together. The biggest source of drift is
-        stage drift, which is independent of the species. This makes it
-        possible to align images with weak signal, by assuming that the
-        drift is the same as the parent species with higher signal, e.g.
-        a 13C image is aligned based on the shifts calculated from the 12C
-        image. The signal in an 13C image is usually too low to calculate
-        shifts accurately.
+        All species are aligned together. The biggest source of drift is stage
+        drift, which is independent of the species. This makes it possible to
+        align images with weak signal, by assuming that the drift is the same
+        as the parent species with higher signal, e.g. a 13C image is aligned
+        based on the shifts calculated from the 12C image. The signal in an 13C
+        image is usually too low to calculate shifts accurately.
 
-        The reference species is the species to which all other images in
-        the data are adjusted. By default this is the first species in
-        the list.
+        The reference species is the species to which all other images in the
+        data are adjusted. By default this is the first species in the list.
 
         The reference frame is the frame to which all other images in the
         stack are adjusted. By default this is 0, the first frame.
 
-        The upsample factor is the amount in fraction of a pixel by which
-        the images are aligned, i.e. upsample_factor=10 means 1/10th of a pixel.
+        The upsample factor is the amount in fraction of a pixel by which the
+        images are aligned, i.e. upsample_factor=10 means 1/10th of a pixel.
 
-        If center=True (the default), the shifts are centered to the median
-        of the shifts to minimize blank edges.
+        If center=True (the default), the shifts are centered to the median of
+        the shifts to minimize blank edges.
 
         Returns the aligned data and the shifts.
     """
@@ -395,7 +394,8 @@ def align(simsobj, reference_species='', reference_frame=0,
             shifts.append(np.zeros(2))
             continue
         sh = register_translation(data[reference_frame], frame,
-                                  upsample_factor=upsample_factor, return_error=False)
+                                  upsample_factor=upsample_factor,
+                                  return_error=False)
         shifts.append(sh)
     shifts = xarray.DataArray(shifts,
                               dims=('frame', 'shift'),
@@ -404,10 +404,10 @@ def align(simsobj, reference_species='', reference_frame=0,
                                      'unit': 'pixels'})
 
     if center:
-        ymedian = shifts.loc[:,0].median()
-        xmedian = shifts.loc[:,1].median()
-        shifts.loc[:,0] += ymedian
-        shifts.loc[:,1] += xmedian
+        ymedian = shifts.loc[:, 0].median()
+        xmedian = shifts.loc[:, 1].median()
+        shifts.loc[:, 0] += ymedian
+        shifts.loc[:, 1] += xmedian
 
     shifted = []
     for block in simsobj.data:
@@ -422,6 +422,7 @@ def align(simsobj, reference_species='', reference_frame=0,
 
     return shifted, shifts
 
+
 def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=None):
     """ Correct data recorded with EMs for several factors.
 
@@ -434,20 +435,20 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         (in same units as data, counts or counts/s) as keyword arguments.
 
         For background it is possible to set up a "baseline" measurement,
-        although this is more commonly done for FC detectors. These values
-        are read from the .chk_is file. Set the background keyword to
-        "baseline" to use these values.
+        although this is more commonly done for FC detectors. These values are
+        read from the .chk_is file. Set the background keyword to "baseline"
+        to use these values.
 
-        Correction factors can be given either a single value to be used
-        for all species in the data, or as a dict with label:value pairs
-        to specify different values per species. This dictionary will
-        override the default values for that species, the other species in
-        the data will still use the values from the header.
+        Correction factors can be given either a single value to be used for
+        all species in the data, or as a dict with label:value pairs to specify
+        different values per species. This dictionary will override the default
+        values for that species, the other species in the data will still use
+        the values from the header.
 
-        By default, all EM-recorded species in the data will be corrected.
-        It is possible to limit that list by specifying the species keyword
-        with a list of species labels. The data of any species not in the list
-        will not be altered.
+        By default, all EM-recorded species in the data will be corrected. It
+        is possible to limit that list by specifying the species keyword with a
+        list of species labels. The data of any species not in the list will
+        not be altered.
 
         The EM deadtime correction with deadtime t assumes a non-paralyzable
         detector (see Williamson et al, Anal. Chem, 1988, 60, 2198-2203) and
@@ -470,24 +471,23 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
                         'yield': det['em yield']/100,  # in %
                         'background': det['em background']}
             if background == 'baseline':
-                if tr['used for baseline'] and 'em background baseline' in tr.keys():
-                    EM[spc]['background'] = tr['em background baseline']
+                if tr['used for baseline'] and 'em background baseline' in tr:
+                    EMs[spc]['background'] = tr['em background baseline']
 
     # Override species
     if species:
         for spc in species:
-            if spc not in EMs.keys():
-                msg = '{} not in data or not using an EM.'.format(spc)
-                raise KeyError(msg)
-        for spc in EMs.keys():
-            if spc not in species.keys():
+            if spc not in EMs:
+                raise KeyError('{} not in data or not using an EM.'.format(spc))
+        for spc in EMs:
+            if spc not in species:
                 EMs.pop(spc)
 
     # Override deadtime values.
     if deadtime is None:
         pass
     elif isinstance(deadtime, (int, float)):
-        for spc in EMs.keys():
+        for spc in EMs:
             EMs[spc]['deadtime'] = deadtime
     elif isinstance(deadtime, dict):
         for spc, dt in deadtime.items():
@@ -495,16 +495,16 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
             EMs[spc]
             EMs[spc]['deadtime'] = dt
     else:
-        msg = 'deadtime value not understood. Give either a single value, or a '
-        msg += 'dictionary {species: value}, or None to use the deadtime value '
-        msg += 'from the header (the default).'
-        raise TypeError(msg)
+        raise TypeError('deadtime value not understood. Give either a single '
+                        'value, or a dictionary {species: value}, or None to '
+                        'use the deadtime value from the header (the '
+                        'default).')
 
     # Override yield values.
     if emyield is None:
         pass
     elif isinstance(emyield, (int, float)):
-        for spc in EMs.keys():
+        for spc in EMs:
             EMs[spc]['yield'] = emyield
     elif isinstance(emyield, dict):
         for spc, yld in emyield.items():
@@ -512,16 +512,15 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
             EMs[spc]
             EMs[spc]['yield'] = yld
     else:
-        msg = 'yield value not understood. Give either a single value, or a '
-        msg += 'dictionary {species: value}, or None to use the yield value '
-        msg += 'from the header (the default).'
-        raise TypeError(msg)
+        raise TypeError('yield value not understood. Give either a single '
+                        'value, or a dictionary {species: value}, or None to '
+                        'use the yield value from the header (the default).')
 
     # Override background values.
     if background is None:
         pass
     elif isinstance(background, (int, float)):
-        for spc in EMs.keys():
+        for spc in EMs:
             EMs[spc]['background'] = background
     elif isinstance(background, dict):
         for spc, bg in background.items():
@@ -532,11 +531,12 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
         if isinstance(background, str) and background == 'baseline':
             pass
         else:
-            msg = 'background value not understood. Give either a single value, or a '
-            msg += 'dictionary {species: value}, or the string "baseline" to use the '
-            msg += 'values from the .chk_is file from the baseline measurement, or None '
-            msg += 'to use the background value from the header (the default).'
-            raise TypeError(msg)
+            raise TypeError('background value not understood. Give either a '
+                            'single value, or a dictionary {species: value}, '
+                            'or the string "baseline" to use the values from '
+                            'the .chk_is file from the baseline measurement, '
+                            'or None to use the background value from the '
+                            'header (the default).')
 
     for spc, dct in EMs.items():
         if not simsobj.header['MassTable'][spc]['background corrected']:
@@ -546,8 +546,9 @@ def em_correct(simsobj, species=None, deadtime=None, emyield=None, background=No
             simsobj.data.loc[spc] *= dct['yield']
             simsobj.header['MassTable'][spc]['yield corrected'] = True
         if not simsobj.header['MassTable'][spc]['deadtime corrected']:
-            simsobj.data.loc[spc] /= (1 - dct['deadtime']*simsobj.data.loc[spc])
+            simsobj.data.loc[spc] /= (1 - dct['deadtime'] * simsobj.data.loc[spc])
             simsobj.header['MassTable'][spc]['deadtime corrected'] = True
+
 
 def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=None):
     """ Correct and convert data recorded with FCs.
@@ -565,33 +566,34 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
         background and is only available if the corresponding .chk_is file
         is present. A more elaborate background can be measured by setting
         up a "baseline" measurement. These values are also read from the
-        .chk_is file. Finally, custom background values can be supplied
-        either as a single value for all FCs, or as a dictionary with a
-        value for each species that was recorded with an FC (skip EM
-        recorded data). Give the values in "cps".
+        .chk_is file. Finally, custom background values can be supplied either
+        as a single value for all FCs, or as a dictionary with a value for each
+        species that was recorded with an FC (skip EM recorded data). Give the
+        values in "cps".
 
         Faraday cups work by running the collected charge through a large
         resistor and measuring the voltage across that resistor. In the
-        nanoSIMS (what about other instruments?) 2 resistors are present
-        for each FC: 10 GOhm and 100 GOhm. They are selected by setting a
-        jumper in the Finnigan can and selecting the corresponding value in
-        Setup. Which resistor is selected is not recorded in the header. By
-        default, a guess will be made by comparing the raw data with the
-        Cameca-corrected data. See SIMSReader.read_data() for more info. If
-        the guess fails, or is incorrect, resistor values can be supplied
-        either as a single value (in Ohm: 10e9 or 100e9) or as a dictionary
-        with a value for each species recorded with a FC.
+        nanoSIMS (what about other instruments?) 2 resistors are present for
+        each FC: 10 GOhm and 100 GOhm. They are selected by setting a jumper in
+        the Finnigan can and selecting the corresponding value in Setup. Which
+        resistor is selected is not recorded in the header. By default, a guess
+        will be made by comparing the raw data with the Cameca-corrected data.
+        See SIMSReader.read_data() for more info. If the guess fails, or is
+        incorrect, resistor values can be supplied either as a single value
+        (in Ohm: 10e9 or 100e9) or as a dictionary with a value for each
+        species recorded with a FC.
 
-        By default, all FC-recorded species in the data will be corrected.
-        It is possible to limit the data correction to only a few species
-        by specifying the species keyword with a list of labels. The data
-        of all species not in the list will not be altered.
+        By default, all FC-recorded species in the data will be corrected. It
+        is possible to limit the data correction to only a few species by
+        specifying the species keyword with a list of labels. The data of all
+        species not in the list will not be altered.
 
         This adjusts the data in the simsobj. It will also set keywords in the
         header to show that background correction has been applied. It is not
         possible to apply the correction more than once.
     """
-    # Get all the trolleys that are set to FC, link to species label, and get background.
+    # Get all the trolleys that are set to FC, link to species label, and get
+    # background.
     FCs = {}
     for spc, mt in simsobj.header['MassTable'].items():
         bfi = mt['b field index']
@@ -609,48 +611,46 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
                 if tr['used for baseline']:
                     FCs[spc]['background'] = tr['fc background baseline']
                 else:
-                    msg = 'no baseline measurement found for {}, '.format(spc)
-                    msg += '({}), using background value from setup.'.format(simsobj.filename)
-                    warnings.warn(msg)
+                    warnings.warn('no baseline measurement found for {}, '
+                                  '({}), using background value from '
+                                  'setup.'.format(spc, simsobj.filename))
             elif background == 'analysis':
-                if 'fc background before analysis' in det.keys():
+                if 'fc background before analysis' in det:
                     before = det['fc background before analysis']
                     after = det['fc background after analysis']
                     FCs[spc]['background'] = (before + after)/2
                 else:
-                    msg = 'no analysis background found for {}, '.format(spc)
-                    msg += '({}), using background value from setup.'.format(simsobj.filename)
-                    warnings.warn(msg)
+                    warnings.warn('no analysis background found for {}, '
+                                  '({}), using background value from '
+                                  'setup.'.format(simsobj.filename))
 
     # Override species
     if species:
         for spc in species:
-            if spc not in FCs.keys():
-                msg = '{} not in data or not using a FC.'.format(spc)
-                raise KeyError(msg)
-        for spc in FCs.keys():
-            if spc not in species.keys():
+            if spc not in FCs:
+                raise KeyError('{} not in data or not using a FC.'.format(spc))
+        for spc in FCs:
+            if spc not in species:
                 FCs.pop(spc)
 
     # Override background values.
     if background is None:
         pass
     elif isinstance(background, (float, int)):
-        for spc in FCs.keys():
+        for spc in FCs:
             FCs[spc]['background'] = background
     elif isinstance(background, dict):
-        for spc, bg in background.keys():
+        for spc, bg in background:
             # raise KeyError if label does not exist in data.
             FCs[spc]
             FCs[spc]['background'] = bg
     else:
-        if isinstance(background, str) and background in ('setup', 'analysis', 'baseline'):
-            pass
-        else:
-            msg = 'background value not understood. Give either a string, one of '
-            msg += '"setup", "analysis", or "baseline", or a single value, or a '
-            msg += 'dictionary {species: value}.'
-            raise TypeError(msg)
+        if not (isinstance(background, str) and
+                background in ('setup', 'analysis', 'baseline')):
+            raise TypeError('background value not understood. Give either a '
+                            'string, one of "setup", "analysis", or "baseline"'
+                            ', or a single value, or a dictionary '
+                            '{species: value}.')
 
     # Resistor values
     if not resistor:
@@ -658,7 +658,7 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
         for spc in resistor.coords['species'].values:
             FCs[spc]['resistor'] = resistor.loc[spc]
     elif isinstance(resistor, (float, int)):
-        for spc in FCs.keys():
+        for spc in FCs:
             FCs[spc]['resistor'] = resistor
     elif isinstance(resistor, dict):
         for spc, r in resistor.items():
@@ -666,10 +666,9 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
             FCs[spc]
             FCs[spc]['resistor'] = r
     else:
-        msg = 'resistor value not understood. Give either a single value, or a '
-        msg += 'dictionary {species: value}, or None to have the resistor value '
-        msg += 'guessed automatically.'
-        raise TypeError(msg)
+        raise TypeError('resistor value not understood. Give either a single '
+                        'value, or a dictionary {species: value}, or None to '
+                        'have the resistor value guessed automatically.')
 
     for spc, dct in FCs.items():
         if not simsobj.header['MassTable'][spc]['background corrected']:
@@ -678,6 +677,7 @@ def fc_correct(simsobj, background='setup', species=None, resistor=None, gain=No
             # 1e5 is the magic factor to go from "cps",
             # which is aparently 0.01 mV/s, to V/s.
             simsobj.data.loc[spc] *= ions_per_amp/(1e5 * dct['resistor'])
+
 
 def _guess_fc_resistors(simsobj):
     """ Internal function; guess FC resistor value from raw and
@@ -706,6 +706,7 @@ def _guess_fc_resistors(simsobj):
     resistors.attrs['unit'] = 'Ohm'
     return resistors
 
+
 class _JSONDateTimeEncoder(json.JSONEncoder):
     """ Converts datetime objects to json format. """
     def default(self, obj):
@@ -715,25 +716,25 @@ class _JSONDateTimeEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, obj)
 
 
-def export_header(simsobj, filename=""):
+def export_header(simsobj, filename=''):
     """ Export header to a JSON text file.
 
         Usage: export_header(simsobj, filename="alt_filename.txt")
 
-        The entire header will be pretty-printed to a text file,
-        serialized as JSON in UTF-8 encoding. Uses sims_filename.im.txt
-        by default.
+        The entire header will be pretty-printed to a text file, serialized as
+        JSON in UTF-8 encoding. Uses sims_filename.im.txt by default.
     """
     if not filename:
         filename = simsobj.filename + '.txt'
 
-    with open(filename, mode='wt', encoding='utf-8') as fp:
+    with open(filename, mode='wt', encoding='utf-8') as fh:
         print(json.dumps(simsobj.header, sort_keys=True,
                          indent=2, ensure_ascii=False,
                          separators=(',', ': '), cls=_JSONDateTimeEncoder),
-              file=fp)
+              file=fh)
 
-def export_matlab(simsobj, filename="", prefix='m', **kwargs):
+
+def export_matlab(simsobj, filename='', prefix='m', **kwargs):
     """ Export data to MatLab file.
 
         Usage: export_matlab(simsobj, filename="alt_filename.mat")
@@ -741,8 +742,8 @@ def export_matlab(simsobj, filename="", prefix='m', **kwargs):
         Saves data to filename.im.mat, or alt_filename.mat if supplied. All
         other keyword arguments are passed on to scipy.io.savemat().
 
-        By default the MatLab file will be saved in MatLab 5 format (the default
-        in MatLab 5 - 7.2), with long_field_names=True (compatible with
+        By default the MatLab file will be saved in MatLab 5 format (the
+        default in MatLab 5 - 7.2), with long_field_names=True (compatible with
         MatLab 7.6+) and with do_compression=True.
 
         The data is stored as a dictionary with the labels as keywords and
@@ -752,17 +753,13 @@ def export_matlab(simsobj, filename="", prefix='m', **kwargs):
     """
     if not filename:
         filename = simsobj.filename
-    if 'do_compression' not in kwargs.keys():
+    if 'do_compression' not in kwargs:
         kwargs['do_compression'] = True
-    if 'long_field_names' not in kwargs.keys():
+    if 'long_field_names' not in kwargs:
         kwargs['long_field_names'] = True
 
     export = {}
-    if pd:
-        for l in simsobj.data.labels:
-            export[prefix + l] = np.asarray(simsobj.data[l])
-    else:
-        for n, l in enumerate(simsobj.header['label list']):
-            export[prefix + l] = simsobj.data[n]
+    for l in simsobj.data.species.values:
+        export[prefix + l] = simsobj.data.loc[l].values
 
     savemat(filename, export, **kwargs)
