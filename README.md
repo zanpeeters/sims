@@ -108,7 +108,9 @@ Attributes:
 # There is a list of formatted labels for pretty printing in the header
 [12]: plt.title(s.header['label list fmt'][0])
 ```
+
 <img src="example.png" style="width: 70%; margin: auto; display: block;">
+
 ```python
 # Show the header
 [13]: s.header
