@@ -765,4 +765,4 @@ def export_matlab(simsobj, filename="", prefix='m', **kwargs):
         for n, l in enumerate(simsobj.header['label list']):
             export[prefix + l] = simsobj.data[n]
 
-    scipy.io.savemat(filename, export, **kwargs)
+    savemat(filename, export, **kwargs)
