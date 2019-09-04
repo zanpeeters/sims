@@ -8,12 +8,12 @@ from sims.__init__ import __version__, __name__, __author__, \
 with open('README.md', mode='rt', encoding='utf-8') as fh:
     __long_description__ = fh.read()
 
-# noqa: E251
 setup(
     name = __name__,
     version = __version__,
     description = __description__,
     long_description = __long_description__,
+    long_description_content_type='text/markdown',
     url = __url__,
     author = __author__,
     author_email = 'me@example.com',
