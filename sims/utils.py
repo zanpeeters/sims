@@ -1,30 +1,34 @@
 """ Tools and utilities for the sims module. """
 
 import re
-import os
-import io
 import json
 import warnings
 import datetime
 import numpy as np
 import xarray
+
+from matplotlib import is_interactive
+if is_interactive():
+    from matplotlib.pyplot import figure as Figure
+else:
+    from matplotlib.figure import Figure
+
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
 from scipy.ndimage import shift
 from scipy.io import savemat
 from skimage.feature import register_translation
-from matplotlib.patches import Rectangle
-from matplotlib.collections import PatchCollection
-from matplotlib.figure import Figure
 
-fits = None
+import sims
+from sims.transparent import TransparentOpen
+
 try:
     from astropy.io import fits
 except ImportError:
-    pass
-
-try:
-    import pyfits as fits
-except ImportError:
-    pass
+    try:
+        import pyfits as fits
+    except ImportError:
+        fits = None
 
 __all__ = [
     'coulomb',
@@ -129,33 +133,64 @@ def format_species(name, mhchem=False, mathrm=False):
     return begin + body + end
 
 
-def thumbnails(simsobj, cycle=0, mass=None, labels=None):
-    """ Generate a thumbnail sheet. """
-    if not mass:
-        mass = range(simsobj.data.shape[0])
-    mass = list(mass)
+def thumbnails(simsobj, frame=0, masses=[], labels=[], **kwargs):
+    """ Generate a thumbnail sheet.
 
-    row = int(np.floor(np.sqrt(len(mass))))
-    diff = np.sqrt(len(mass)) - row
+        Usage: fig = thumbnails(s)
+
+        Generates a sheet of thumbnails for the masses in simsobj.
+
+        Set frame=number to select a specific frame. By default the first
+        frame (0) is used.
+
+        Give a list of masses to select which masses to generate thumbnails of.
+        By default a thumbnail is generated for all masses in simsobj.
+
+        Set labels to a list of labels, one for each mass. By default the formatted
+        labels from the simsobj.header are used.
+
+        Additional keyword arguments are passed on to matplotlib.imshow().
+
+        Returns a matplotlib figure instance. If you call this from 'interactive' mode
+        (e.g. from ipython --pylab or jupyter), an active figure is shown. If it is not
+        called from interactive mode, use fig.savefig('filename.pdf') to save the figure
+        to file.
+    """
+    if not masses:
+        masses = simsobj.data.species.values
+
+    if not labels:
+        labels = simsobj.header['label list fmt']
+
+    rows = int(np.floor(np.sqrt(len(masses))))
+    diff = np.sqrt(len(masses)) - rows
     if diff == 0:
         # square, MxM
-        col = row
+        cols = rows
     elif diff < 0.5:
         # not square, MxN
-        col = row + 1
+        cols = rows + 1
     else:
         # next square, NxN
-        row += 1
-        col = row
+        rows += 1
+        cols = rows
 
     fig = Figure(figsize=(14.2222, 14.2222), dpi=72, facecolor='white')
-    plots = fig.subplots(nrows=row, ncols=col)
-    for m, n in zip(mass, range(len(mass))):
-            ax = plots[m][n]
+    plots = fig.subplots(nrows=rows, ncols=cols)
+
+    for row in range(rows):
+        for col in range(cols):
+            ax = plots[row, col]
             ax.axis('off')
-            ax.imshow(simsobj.data.loc[m, cycle])
-            if labels:
-                ax.title(labels[n])
+            n = row * cols + col
+            if n < len(masses):
+                mass = masses[n]
+                if isinstance(mass, str):
+                    ax.imshow(simsobj.data.loc[mass, frame], **kwargs)
+                elif isinstance(mass, int):
+                    ax.imshow(simsobj.data[mass, frame], **kwargs)
+                if labels:
+                    ax.set_title(labels[n])
 
     return fig
 
@@ -170,18 +205,25 @@ def coordinates(filelist, **kwargs):
         A label for each file can be given. If it's omitted, the filename will be printed
         over the box, but no attempt is made to make the filename fit in the box.
 
-        Returns a matplotlib figure instance.
+        Returns a matplotlib figure instance. If you call this from 'interactive' mode
+        (e.g. from ipython --pylab or jupyter), an active figure is shown. If it is not
+        called from interactive mode, use fig.savefig('filename.pdf') to save the figure
+        to file.
     """
     labels = kwargs.pop('labels', filelist)
 
     patches = []
-    x_min = None
+    x_min = float('inf')
+    y_min = float('inf')
+    x_max = float('-inf')
+    y_max = float('-inf')
+
     fig = Figure()
     ax = fig.gca()
 
     for fn, lb in zip(filelist, labels):
-        with open(fn, mode='rb') as fh:
-            s = sims.SIMSReader(fh)
+        with TransparentOpen(fn) as th:
+            s = sims.SIMSReader(th.fh)
             s.peek()
             s.read_header()
 
@@ -206,18 +248,11 @@ def coordinates(filelist, **kwargs):
             x -= raster/2
             y -= raster/2
 
-            # Update data limits, relim() used by autoview does not work with collections (yet)
-            if not x_min:
-                # first pass
-                x_min = x
-                x_max = x + raster
-                y_min = y
-                y_max = y + raster
-            else:
-                if x < x_min: x_min = x
-                if x + raster > x_max: x_max = x + raster
-                if y < y_min: y_min = y
-                if y + raster > y_max: y_max = y + raster
+            # Update data limits, relim() does not work with collections
+            x_min = min(x, x_min)
+            x_max = max(x + raster, x_max)
+            y_min = min(y, y_min)
+            y_max = max(y + raster, y_max)
 
             rect = Rectangle((x,y), raster, raster, ec='black', fc='white', fill=False)
             patches.append(rect)
