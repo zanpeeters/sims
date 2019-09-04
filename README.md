@@ -18,11 +18,11 @@ Python module to read Cameca (nano)SIMS data files.
     * Beam Stability traces (.bs)
     * and many more!
 
-    Most of these can be read by the sims module. Support for more files is add whenever possible.
+    Most of these can be read by the sims module. Support for more files is added whenever possible. No other software can do this, to my knowledge.
 
 -   Reading data directly from **compressed** files. Especially the .im image files tend to take up a lot of space, even if the majority of the data is zeros. They can compress down to as much as 90 % of their original size. sims supports reading directly from files compressed with gzip, bzip2, xz, lzma, 7zip, and zip. You can also combine multiple files in a multifile archive with tar, zip, or 7zip and read some or all files directly from that.
 
--   It's open source and free, allowing you to see exactly how calculations and data transformations were done. This is in stark contrast with other, closed-source programs, where you have to just trust that the writers of those programs implemented everything correctly. You can not see how they did it exactly, because they won't let you see inside the code. This program is completely open! Look how things are done and if you don't like it, improve! What if_I_have_a word like _this_?
+-   It's open source and free, allowing you to see exactly how calculations and data transformations were done. This is in stark contrast with other, closed-source programs, where you have to just trust that the writers of those programs implemented everything correctly. You can not see how they did it exactly, because they won't let you see inside the code. This program is completely open! Look how things are done and if you don't like it, improve!
 
 ## What's new
 
