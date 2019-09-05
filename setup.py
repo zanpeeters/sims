@@ -36,7 +36,8 @@ setup(
 
     packages = find_packages(),
     package_data = {'sims': ['lut/*']},
-    
+
+    python_requires = '>=3.4',
     tests_require = ['pytest'],
 
     zip_safe = False
