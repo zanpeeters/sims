@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """ Setuptools setup file for sims. """
 from setuptools import setup, find_packages
-from sims.__init__ import __version__, __pkgname__, __author__, \
-                          __url__, __license__, __copyright__, \
-                          __description__
+from sims.__init__ import (__version__, __pkgname__, __author__,
+                           __url__, __license__, __description__)
 
 with open('README.md', mode='rt', encoding='utf-8') as fh:
     __long_description__ = fh.read()
@@ -18,7 +17,6 @@ setup(
     author = __author__,
     author_email = 'me@example.com',
     license = __license__,
-    copyright = __copyright__,
     classifiers = [
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python :: 3',
