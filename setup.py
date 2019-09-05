@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """ Setuptools setup file for sims. """
 from setuptools import setup, find_packages
-from sims.__init__ import __version__, __name__, __author__, \
+from sims.__init__ import __version__, __pkgname__, __author__, \
                           __url__, __license__, __copyright__, \
                           __description__
 
@@ -9,7 +9,7 @@ with open('README.md', mode='rt', encoding='utf-8') as fh:
     __long_description__ = fh.read()
 
 setup(
-    name = __name__,
+    name = __pkgname__,
     version = __version__,
     description = __description__,
     long_description = __long_description__,
@@ -38,7 +38,7 @@ setup(
 
     packages = find_packages(),
     package_data = {'sims': ['lut/*']},
-
+    
     tests_require = ['pytest'],
 
     zip_safe = False
