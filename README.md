@@ -109,7 +109,8 @@ Attributes:
 [12]: plt.title(s.header['label list fmt'][0])
 ```
 
-<img src="example.png" style="width: 70%; margin: auto; display: block;">
+<img src="https://raw.githubusercontent.com/zanpeeters/sims/master/example.png"
+ style="width: 70%; margin: auto; display: block;">
 
 ```python
 # Show the header
