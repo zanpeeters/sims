@@ -1,3 +1,5 @@
+""" Python module to read Cameca (nano)SIMS data files. """
+
 from sims.sims import *
 
 __version__ = '2.0.0'

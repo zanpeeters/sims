@@ -1,4 +1,4 @@
-""" Python module to read Cameca (nano)SIMS data files. """
+""" Main sims module to read and parse Cameca (nano)SIMS data files. """
 
 import bz2
 import collections
