@@ -29,7 +29,7 @@ setup(
 
     install_requires = [
         'matplotlib',
-        'scikit-image',
+        'scikit-image>=1.9.0',
         'scipy',
         'xarray'
     ],
@@ -37,7 +37,7 @@ setup(
     packages = find_packages(),
     package_data = {'sims': ['lut/*']},
 
-    python_requires = '>=3.4',
+    python_requires = '>=3.8',
     tests_require = ['pytest'],
 
     zip_safe = False
