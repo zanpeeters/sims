@@ -26,6 +26,10 @@ Python module to read Cameca (nano)SIMS data files.
 
 ## What's new
 
+### v2.0.1
+
+Updated `utils.align()` to use `phase_cross_correlation()` which changed in scikit-image v1.9. Also updated minimum Python version to 3.8.
+
 ### v2.0.0
 
 Since version 0.25 pandas no longer supports 4DPanel and Panel. sims has switched to using xarray, the recommended 
