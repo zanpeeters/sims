@@ -11,7 +11,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
 from scipy.ndimage import shift
 from scipy.io import savemat
-from skimage.feature import register_translation
+from skimage.registration import phase_cross_correlation
 
 import sims
 from sims.transparent import TransparentOpen
@@ -351,7 +351,7 @@ def align(simsobj, reference_species='', reference_frame=0,
         usage: aligned_data, shifts = align(data)
 
         Performs sub-pixel image translation registration (image alignment) on
-        the data. skimage.features.register_translation() is used for
+        the data. skimage.registration.phase_cross_correlation() is used for
         calculating the shifts and scipy.ndimage.shift() is used to apply the
         shifts to the data. See the documentation of those functions for more
         information.
@@ -393,9 +393,9 @@ def align(simsobj, reference_species='', reference_frame=0,
         if n == reference_frame:
             shifts.append(np.zeros(2))
             continue
-        sh = register_translation(data[reference_frame], frame,
-                                  upsample_factor=upsample_factor,
-                                  return_error=False)
+        sh = phase_cross_correlation(data[reference_frame], frame,
+                                     upsample_factor=upsample_factor,
+                                     return_error=False)
         shifts.append(sh)
     shifts = xarray.DataArray(shifts,
                               dims=('frame', 'shift'),
