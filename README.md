@@ -26,9 +26,13 @@ Python module to read Cameca (nano)SIMS data files.
 
 ## What's new
 
+### v2.0.2
+
+Fixed scikit-image version, 0.19 not 1.9.
+
 ### v2.0.1
 
-Updated `utils.align()` to use `phase_cross_correlation()` which changed in scikit-image v1.9. Also updated minimum Python version to 3.8.
+Updated `utils.align()` to use `phase_cross_correlation()` which changed in scikit-image v0.19. Also updated minimum Python version to 3.8.
 
 ### v2.0.0
 

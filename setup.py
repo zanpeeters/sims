@@ -29,7 +29,7 @@ setup(
 
     install_requires = [
         'matplotlib',
-        'scikit-image>=1.9.0',
+        'scikit-image>=0.19',
         'scipy',
         'xarray'
     ],
